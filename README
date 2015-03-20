@@ -1,0 +1,16 @@
+Through the developer's mind
+-----------------------------
+
+This was what was thought when making this project:
+1. Implement simple TCP Server at port EXOREDIS_SERVER_TCP_PORT
+2. Test telnet echoes a server response for the telnet request (connection request and special request)
+3. Implement REDIS protocol at server
+4. Repeat step 2.
+
+Limitations:
+1. Does not support FD set. Only one client may connect to this server for now.
+2. .exordb file format is slightly different. Only length-key-value make up the
+   entries for now.
+3. No buffering of requests. For now one re quest is followed by response, in
+   that order.
+
