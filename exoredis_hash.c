@@ -157,6 +157,33 @@ exoredis_create_update_he (unsigned int key,
     }
 }
 
+unsigned int
+exoredis_read_he (unsigned int key)
+{
+    exoredis_hash_entry *he_temp = NULL;
+    exoredis_hash_entry *he_prev = NULL;
+    int ht_index = 0;
+    
+    ht_index = exoredis_hash_index((unsigned char *)&key);
+    he_temp = ht->table[ht_index];
+
+    he_prev = NULL;
+
+    /* First check for the key/value pair */
+    while(he_temp && he_temp->key != key) {
+        he_prev = he_temp;
+        he_temp = he_temp->next;
+    }
+
+    if (he_temp) {
+        /* Node exists. Return the value */
+        printf("Returning key value pair (%d,%d)\n",he_temp->key, he_temp->value);
+        return he_temp->value;
+    }
+    printf("Key %d not found in DB\n",key);
+    return EXOREDIS_DB_VAL_INVALID;
+}
+
 #if HASH_TEST_MODE
 
 /*********************************************/
@@ -173,6 +200,7 @@ main()
     exoredis_create_update_he(96, 34);
     exoredis_create_update_he(3696, 34);
     exoredis_dump_ht();
+    exoredis_read_he(198);
     exoredis_destroy_he(198);
     exoredis_destroy_he(134);
     exoredis_destroy_ht();
