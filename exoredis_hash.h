@@ -19,6 +19,6 @@ typedef struct _exoredis_ht exoredis_ht;
 #define EXOREDIS_HASH_SEED 257
 
 #define EXOREDIS_DB_VAL_INVALID (ULONG_MAX + 1)
-#define HASH_TEST_MODE 1
+#define HASH_TEST_MODE 0
 
 #endif

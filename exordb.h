@@ -39,5 +39,7 @@ struct _exoredis_io {
     int fd;
 };
 
-typedef struct _exoredis_io exoredis_io;
+typedef struct _exoredis_io exoredis_io_name;
+
+exoredis_io_name exoredis_io;
 #endif /* _EXORDB_H */

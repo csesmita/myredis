@@ -69,18 +69,11 @@ exoredis_dump_ht ( void )
 unsigned int
 exoredis_hash_index (unsigned char *key)
 {
-    unsigned long hash_value = 0;
-    unsigned int seed = EXOREDIS_HASH_SEED;
-    int i = 0;
-    char *temp_key = key;
+    unsigned int hash_value = EXOREDIS_HASH_SEED;
+    unsigned int i = 0;
+    unsigned char *temp_key = key;
 
-    # if 0
-    for (i = 0; i < sizeof(temp_key) && temp_key != 0; i++) {
-        hash_value += temp_key & seed;
-        temp_key = temp_key << 1;
-    }
-    #endif
-    while (hash_value < ULONG_MAX && i < strlen(temp_key)) {
+    while (hash_value < ULONG_MAX && i < strlen((const char *)(temp_key))) {
         hash_value = hash_value << 8;
         hash_value += temp_key[i++];
     }
@@ -161,17 +154,13 @@ unsigned int
 exoredis_read_he (unsigned int key)
 {
     exoredis_hash_entry *he_temp = NULL;
-    exoredis_hash_entry *he_prev = NULL;
     int ht_index = 0;
     
     ht_index = exoredis_hash_index((unsigned char *)&key);
     he_temp = ht->table[ht_index];
 
-    he_prev = NULL;
-
     /* First check for the key/value pair */
     while(he_temp && he_temp->key != key) {
-        he_prev = he_temp;
         he_temp = he_temp->next;
     }
 
@@ -201,6 +190,7 @@ main()
     exoredis_create_update_he(3696, 34);
     exoredis_dump_ht();
     exoredis_read_he(198);
+    exoredis_dump_ht();
     exoredis_destroy_he(198);
     exoredis_destroy_he(134);
     exoredis_destroy_ht();

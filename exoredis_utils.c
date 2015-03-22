@@ -1,6 +1,7 @@
 #include "exoredis.h"
 #include "exoredis_server.h"
 
+#if 0
 /*
  * exoredis_handle_get():
  * This function handles the REDIS protocol GET request
@@ -13,5 +14,12 @@ void exoredis_handle_get (char *arg)
 {
     printf("GET Command: GET %s\n", arg);
 
+    return;
+}
+#endif
+
+void exoredis_handle_save(char *arg)
+{
+    printf("SAVE Command\n");
     return;
 }

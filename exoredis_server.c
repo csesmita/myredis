@@ -70,38 +70,48 @@ void exoredis_process_request(char *buf)
 
     if(cmd == EXOREDIS_CMD_MAX) {
         printf("Unrecognized command %s", buf);
+        return;
     }
     buf = ++ptr;
-    printf("Arguments to command %s\n", buf);
 
     switch(cmd) {
-        case EXOREDIS_CMD_GET:
-            return exoredis_handle_get(buf);
 #if 0
+        case EXOREDIS_CMD_GET:
+            printf("Arguments to command %s\n", buf);
+            return exoredis_handle_get(buf);
+
         case EXOREDIS_CMD_SET:
+            printf("Arguments to command %s\n", buf);
             return exoredis_handle_set();
 
         case EXOREDIS_CMD_GETBIT:
+            printf("Arguments to command %s\n", buf);
             return exoredis_handle_getbit();
 
         case EXOREDIS_CMD_SETBIT:
+            printf("Arguments to command %s\n", buf);
             return exoredis_handle_setbit();
 
         case EXOREDIS_CMD_ZADD:
+            printf("Arguments to command %s\n", buf);
             return exoredis_handle_zadd();
 
         case EXOREDIS_CMD_ZCOUNT:
+            printf("Arguments to command %s\n", buf);
             return exoredis_handle_zcount();
 
         case EXOREDIS_CMD_ZCARD:
+            printf("Arguments to command %s\n", buf);
             return exoredis_handle_zcard();
 
         case EXOREDIS_CMD_ZRANGE:
+            printf("Arguments to command %s\n", buf);
             return exoredis_handle_zrange();
 
-        case EXOREDIS_CMD_SAVE:
-            return exoredis_handle_save();
 #endif
+        case EXOREDIS_CMD_SAVE:
+            return exoredis_handle_save(buf);
+
         default:
             break;
     }
@@ -143,6 +153,15 @@ void exoredis_handle_client_req(void)
     }
 }
 
+void
+exoredis_io_init (oid)
+{
+   exoredis_io.fd = -1;
+   exoredis_io.storage.file.fp = NULL;
+   exoredis_io.storage.buffer.buf = NULL;
+   exoredis_io.storage.buffer.offset = NULL;
+}
+
 int main(int argc, char *argv[])
 {
     int listen_sock = 0, new_fd = 0;
@@ -164,7 +183,8 @@ int main(int argc, char *argv[])
         return(-1);
     }
 
-    exoredis_io.storage.file->fp = fp;
+    exoredis_io_init();
+    exoredis_io.storage.file.fp = fp;
 
     if((listen_sock = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
         printf("Server socket problem\n");

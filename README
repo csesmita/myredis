@@ -11,6 +11,15 @@ Limitations:
 1. Does not support FD set. Only one client may connect to this server for now.
 2. .exordb file format is slightly different. Only length-key-value make up the
    entries for now.
-3. No buffering of requests. For now one re quest is followed by response, in
+3. No buffering of requests. For now one request is followed by response, in
    that order.
-
+4. An upper limit of 1000 entries are set for this DB. This is defined in
+   exoredis_rdb.h
+5. READ: Lazy copy of DB from file to hash table. When a read occurs, the hash
+   table is first looked up. A hit returns the value. A miss looks up the  DB
+   file, retrieves the value, enters it into the hash and returns.
+6. WRITE: Write always writes the value of the key into the hash table
+7. SAVE (Or Program Exit): For each entry in hash table, create or update value
+   into DB file. Since DELETE is not implemnented, no other case needs
+   handling.
+   
