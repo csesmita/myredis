@@ -29,12 +29,24 @@
 typedef enum exoredis_data_type
 {
   SIMPLE_STRING_DATA_TYPE,
-  BULK_STRING_DATA_TYPE,
   ERROR_DATA_TYPE,
   INTEGER_DATA_TYPE,
+  BULK_STRING_DATA_TYPE,
   ARRAY_DATA_TYPE,
+  MAX_DATA_TYPE,
 }exoredis_data_type;
 
+typedef enum {
+    SIMPLE_STRING_OK,
+    SIMPLE_STRING_MAX,
+}exoredis_simple_strings;
+
+typedef enum {
+    ERROR_STRING_ERR,
+    ERROR_STRING_MAX,
+}exoredis_error_strings;
+
+#define EXOREDIS_RESP_LEN 1024
 
 typedef enum supported_cmds
 {

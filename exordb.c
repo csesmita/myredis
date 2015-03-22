@@ -6,9 +6,10 @@
  * Read the number of bytes as specified by the 2 MSBs of byte 1.
  */
 
-
 void
-exordbLoadLen (int )
+exordbLoadLen ()
 {
     /* Read the DB file */
 }
+
+

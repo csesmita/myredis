@@ -173,6 +173,27 @@ exoredis_read_he (unsigned int key)
     return EXOREDIS_DB_VAL_INVALID;
 }
 
+/* Dump the entries in the HT to the DB file */
+void
+exoredis_feed_ht_to_io (void)
+{
+    int i = 0;
+    exoredis_hash_entry *temp = NULL;
+
+    while (i < ht->size) {
+        temp = ht->table[i];
+        while(temp) {
+            /* Write (key,value) to file starting from the start*/
+            rewind(exoredis_io.dbfp);
+
+
+            temp = temp->next;
+        }
+        i++;
+    }
+}
+
+
 #if HASH_TEST_MODE
 
 /*********************************************/

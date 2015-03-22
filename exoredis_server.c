@@ -79,11 +79,11 @@ void exoredis_process_request(char *buf)
         case EXOREDIS_CMD_GET:
             printf("Arguments to command %s\n", buf);
             return exoredis_handle_get(buf);
-
+#endif
         case EXOREDIS_CMD_SET:
             printf("Arguments to command %s\n", buf);
-            return exoredis_handle_set();
-
+            return exoredis_handle_set(buf);
+#if 0
         case EXOREDIS_CMD_GETBIT:
             printf("Arguments to command %s\n", buf);
             return exoredis_handle_getbit();
@@ -108,9 +108,9 @@ void exoredis_process_request(char *buf)
             printf("Arguments to command %s\n", buf);
             return exoredis_handle_zrange();
 
-#endif
         case EXOREDIS_CMD_SAVE:
             return exoredis_handle_save(buf);
+#endif
 
         default:
             break;
@@ -157,9 +157,7 @@ void
 exoredis_io_init (oid)
 {
    exoredis_io.fd = -1;
-   exoredis_io.storage.file.fp = NULL;
-   exoredis_io.storage.buffer.buf = NULL;
-   exoredis_io.storage.buffer.offset = NULL;
+   exoredis_io.dbfp = NULL;
 }
 
 int main(int argc, char *argv[])
@@ -184,7 +182,7 @@ int main(int argc, char *argv[])
     }
 
     exoredis_io_init();
-    exoredis_io.storage.file.fp = fp;
+    exoredis_io.dbfp = fp;
 
     if((listen_sock = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
         printf("Server socket problem\n");
@@ -206,6 +204,9 @@ int main(int argc, char *argv[])
 
     printf("Server waiting for client requests on port %d\n",
            EXOREDIS_SERVER_TCP_PORT);
+
+    /* Just before heading over to clients, load the DB file into hash table */
+    //exoredis_feed_io_to_ht();
 
     /* Now wait infinitely for client to send requests */
     while(1) {

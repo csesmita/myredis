@@ -1,5 +1,5 @@
 #ifndef EXOREDIS_HASH_H_
-#define EXOREDIS_HASH_H
+#define EXOREDIS_HASH_H_
 
 struct _exoredis_hash_entry {
     unsigned int key;
@@ -20,5 +20,11 @@ typedef struct _exoredis_ht exoredis_ht;
 
 #define EXOREDIS_DB_VAL_INVALID (ULONG_MAX + 1)
 #define HASH_TEST_MODE 0
+
+void
+exoredis_feed_ht_to_io();
+
+void
+exoredis_feed_io_to_ht();
 
 #endif
