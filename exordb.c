@@ -91,3 +91,91 @@ exordb_decode_key (char  *buf,
     }
     return EXOREDIS_ERR;
 }
+
+exoredis_return_codes
+exordb_encode_value (char **buf,
+                     char  *value,
+                     unsigned short val_len,
+                     exoredis_value_type val_type,
+                     exoredis_data_type  data_type,
+                     unsigned short size)
+{
+    unsigned char len_encode = EXOREDIS_RDB_6BITLEN;
+    unsigned short short_key = 0;
+
+    if (val_len > EXOREDIS_RDB_14BITLEN_LIMIT) {
+        printf("Value of the key cannot exceed 16KB\n");
+        return EXOREDIS_ERR;
+    }
+
+    len_encode = (val_len > EXOREDIS_RDB_6BITLEN_LIMIT)? EXOREDIS_RDB_14BITLEN : EXOREDIS_RDB_6BITLEN;
+
+    switch(val_type) {
+        case ENCODING_VALUE_TYPE_STRING:
+            /* Check the specific data type when encoding the length of value*/
+            switch(data_type) {
+                case SIMPLE_STRING_DATA_TYPE:
+                case ERROR_DATA_TYPE:
+                case BULK_STRING_DATA_TYPE:
+                    if (len_encode == EXOREDIS_RDB_6BITLEN) {
+                        (*buf)[0] = (len_encode << 6) | (val_len & 0x3F); 
+                        (*buf)++;
+                    } else {
+                        short_key = (unsigned short)(len_encode << 6) | (val_len & 0x3FFF); 
+                        memcpy(*buf, &short_key, sizeof(short_key));
+                        (*buf) += sizeof(short_key);
+                    }
+                    memcpy(*buf, value, val_len);
+                    break;
+
+                case INTEGER_DATA_TYPE:
+                    len_encode = EXOREDIS_RDB_SPECIAL_BITLEN;
+                    /* Integer length have to be contained within 4 bits */
+                    if (val_len > EXOREDIS_RDB_SPECIAL_FOUR_BYTE) {
+                        printf("Byte length of integer value cannot exceed 4 bytes\n");
+                        return EXOREDIS_ERR;
+                    }
+                    (*buf)[0] = (len_encode << 6) | ((unsigned char)(val_len) & 0x3F); 
+                    (*buf)++;
+                    memcpy(*buf, value, val_len);
+                    break;
+                default:
+                    return EXOREDIS_ERR;
+            }
+            return EXOREDIS_OK;
+
+        case ENCODING_VALUE_TYPE_LIST:
+        case ENCODING_VALUE_TYPE_SORTED_SET:
+            if (size > EXOREDIS_RDB_14BITLEN_LIMIT) {
+                printf("size of list cannot exceed 16383 in count\n");
+                return EXOREDIS_ERR;
+            }
+            switch(data_type) {
+                case ARRAY_DATA_TYPE:
+                    /* First encode the size of array, followed by
+                     * len + value of each element 
+                     */
+                    len_encode = (size > EXOREDIS_RDB_6BITLEN_LIMIT)? 
+                                 EXOREDIS_RDB_14BITLEN : EXOREDIS_RDB_6BITLEN;
+                    if(len_encode == EXOREDIS_RDB_6BITLEN) {
+                        (*buf)[0] = (len_encode << 6) | ((unsigned char)(size) & 0x3F); 
+                        (*buf)++;
+                    } else {
+                        short_key = (unsigned short)(len_encode << 6) | (size & 0x3FFF); 
+                        memcpy(*buf, &short_key, sizeof(short_key));
+                        (*buf) += sizeof(short_key);
+                    }
+
+                    /* Simple encoded strings in value. Copy in */
+                    memcpy(*buf, value, val_len);
+                    break;
+                default:
+                    return EXOREDIS_ERR;
+            }
+            return EXOREDIS_OK;
+
+        default:
+            break;
+    }
+    return EXOREDIS_ERR;
+}
