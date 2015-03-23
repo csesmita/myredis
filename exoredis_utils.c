@@ -34,6 +34,17 @@ void exoredis_resp_error(char *msg)
     send(exoredis_io.fd, buf, strlen(buf), MSG_DONTWAIT);
 }
 
+void exoredis_resp_ok(char *msg)
+{
+    char buf[EXOREDIS_RESP_LEN] = "\0";
+
+    buf[0] = prefix_string[SIMPLE_STRING_DATA_TYPE];
+    strncat(buf, simple_string[SIMPLE_STRING_OK], 
+            strlen(simple_string[SIMPLE_STRING_OK]));
+    strncat(buf, msg, strlen(msg));
+    send(exoredis_io.fd, buf, strlen(buf), MSG_DONTWAIT);
+}
+
 void exoredis_handle_set (char *key)
 {
     char *ptr = NULL;
