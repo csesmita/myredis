@@ -139,4 +139,5 @@ typedef struct _exoredis_io exoredis_io_name;
 /* The IO specifics' variable */
 exoredis_io_name exoredis_io;
 
+#define TEST_MODE_ON
 #endif /* _EXORDB_H */
