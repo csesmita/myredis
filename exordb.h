@@ -121,6 +121,7 @@ typedef enum _exoredis_value_type {
  *
  */
 
+/* Status codes for encoding/decoding */
 typedef enum {
     EXOREDIS_OK,
     EXOREDIS_ERR,
@@ -139,5 +140,5 @@ typedef struct _exoredis_io exoredis_io_name;
 /* The IO specifics' variable */
 exoredis_io_name exoredis_io;
 
-#define TEST_MODE_ON
+//#define TEST_MODE_ON
 #endif /* _EXORDB_H */

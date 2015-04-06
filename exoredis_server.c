@@ -176,7 +176,7 @@ int main(int argc, char *argv[])
         return(-1);
     }
 
-    if((fp = fopen(argv[1], "a+")) == NULL) {
+    if((fp = fopen(argv[1], "ab+")) == NULL) {
         printf("Error opening DB file\n");
         return(-1);
     }

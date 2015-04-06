@@ -27,6 +27,7 @@ void exoredis_resp_error(char *msg)
 {
     char buf[EXOREDIS_RESP_LEN] = "\0";
 
+    /* OK  to use string operations since these are always simple strings */
     buf[0] = prefix_string[ERROR_DATA_TYPE];
     strncat(buf, error_string[ERROR_STRING_ERR], 
             strlen(error_string[ERROR_STRING_ERR]));
@@ -38,6 +39,7 @@ void exoredis_resp_ok(char *msg)
 {
     char buf[EXOREDIS_RESP_LEN] = "\0";
 
+    /* OK  to use string operations since these are always simple strings */
     buf[0] = prefix_string[SIMPLE_STRING_DATA_TYPE];
     strncat(buf, simple_string[SIMPLE_STRING_OK], 
             strlen(simple_string[SIMPLE_STRING_OK]));
@@ -57,6 +59,9 @@ void exoredis_handle_set (char *key)
         return exoredis_resp_error("Incorrect arguments to SET\n");
     }
     printf("SET Command: SET %s %s\n", key, ptr);
+    printf("SET Command: Length of args %d %d\n", strlen(key), strlen(ptr));
+    /* Write the value into hash */
+
     return;
 }
 

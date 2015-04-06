@@ -9,9 +9,11 @@
 
 exoredis_return_codes
 exordb_encode_type (char **buf,
-                    exoredis_value_type type)
+                    exoredis_value_type type,
+                    unsigned int *total_len)
 {
     memcpy((*buf), (char *)&type, 1);
+    *total_len = *total_len + 1;
     (*buf)++;
     return EXOREDIS_OK;
 }
@@ -27,7 +29,8 @@ exordb_decode_type (char **buf)
 exoredis_return_codes
 exordb_encode_key (char **buf,
                    const char *key,
-                   unsigned short key_len)
+                   unsigned short key_len,
+                   unsigned int *total_len)
 {
     unsigned char len_encode = EXOREDIS_RDB_6BITLEN;
     unsigned short short_key = 0;
@@ -48,43 +51,47 @@ exordb_encode_key (char **buf,
     case EXOREDIS_RDB_6BITLEN:
         (*buf)[0] = ((len_encode << 6) | ((unsigned char)(key_len) & 0x3F));
         (*buf)++;
+        *total_len += 1;
         memcpy(*buf, key, key_len);
         break;
     case EXOREDIS_RDB_14BITLEN: 
         short_key = ((((unsigned short)(len_encode)) << 14) |
                       ((unsigned short)(key_len) & 0x3FFF));
         memcpy(*buf, &short_key, sizeof(short_key));
+        *total_len += sizeof(short_key);
         *buf += sizeof(short_key);
         memcpy(*buf, key, key_len);
         break;
     default : /* Invalid */
         return EXOREDIS_ERR;
     }
+    *total_len += key_len;
     *buf += key_len;
     return EXOREDIS_ERR;
 }
 
 exoredis_return_codes
-exordb_decode_key (char  *buf,
+exordb_decode_key (char **buf,
                    char **key)
 {
-    int key_len = 0;
+    unsigned short key_len = 0;
     unsigned char len_encode = EXOREDIS_RDB_6BITLEN;
-    char *ptr = buf;
 
-    len_encode = (ptr[0] & 0xC0) >> 6;
+    len_encode = (**buf & 0xC0) >> 6;
 
     /* Copy the two LSB of len_encode into buffer's MSBs */
     switch(len_encode) {
     case EXOREDIS_RDB_6BITLEN:
-        key_len = ptr[0] & 0x3F;
-        ptr++;
-        memcpy(*key, ptr, key_len);
+        key_len = **buf & 0x3F;
+        (*buf)++;
+        memcpy(*key, *buf, key_len);
+        *buf += key_len;
         return EXOREDIS_OK;
     case EXOREDIS_RDB_14BITLEN: 
-        key_len = (unsigned short)(*ptr) & 0x3FFF;
-        ptr += sizeof(unsigned short);
-        memcpy(*key, ptr, key_len);
+        memcpy(&key_len, (unsigned short *)(*buf), sizeof(unsigned short));
+        key_len &= 0x3FFF;
+        *buf += sizeof(unsigned short);
+        memcpy(*key, *buf, key_len);
         return EXOREDIS_OK;
     default : /* Invalid */
         break;
@@ -98,7 +105,8 @@ exordb_encode_value (char **buf,
                      unsigned short val_len,
                      exoredis_value_type val_type,
                      exoredis_data_type  data_type,
-                     unsigned short size)
+                     unsigned short size,
+                     unsigned int *total_len)
 {
     unsigned char len_encode = EXOREDIS_RDB_6BITLEN;
     unsigned short short_key = 0;
@@ -108,7 +116,8 @@ exordb_encode_value (char **buf,
         return EXOREDIS_ERR;
     }
 
-    len_encode = (val_len > EXOREDIS_RDB_6BITLEN_LIMIT)? EXOREDIS_RDB_14BITLEN : EXOREDIS_RDB_6BITLEN;
+    len_encode = (val_len > EXOREDIS_RDB_6BITLEN_LIMIT)? EXOREDIS_RDB_14BITLEN:
+                 EXOREDIS_RDB_6BITLEN;
 
     switch(val_type) {
         case ENCODING_VALUE_TYPE_STRING:
@@ -120,12 +129,17 @@ exordb_encode_value (char **buf,
                     if (len_encode == EXOREDIS_RDB_6BITLEN) {
                         (*buf)[0] = (len_encode << 6) | (val_len & 0x3F); 
                         (*buf)++;
+                        *total_len += 1;
                     } else {
-                        short_key = (unsigned short)(len_encode << 6) | (val_len & 0x3FFF); 
+                        short_key = (unsigned short)(len_encode << 6) |
+                                    (val_len & 0x3FFF); 
                         memcpy(*buf, &short_key, sizeof(short_key));
                         (*buf) += sizeof(short_key);
+                        *total_len += sizeof(short_key);
                     }
                     memcpy(*buf, value, val_len);
+                    *buf += val_len;
+                    *total_len += val_len;
                     break;
 
                 case INTEGER_DATA_TYPE:
@@ -137,7 +151,10 @@ exordb_encode_value (char **buf,
                     }
                     (*buf)[0] = (len_encode << 6) | ((unsigned char)(val_len) & 0x3F); 
                     (*buf)++;
+                    *total_len += 1;
                     memcpy(*buf, value, val_len);
+                    *buf += val_len;
+                    *total_len += val_len;
                     break;
                 default:
                     return EXOREDIS_ERR;
@@ -160,14 +177,18 @@ exordb_encode_value (char **buf,
                     if(len_encode == EXOREDIS_RDB_6BITLEN) {
                         (*buf)[0] = (len_encode << 6) | ((unsigned char)(size) & 0x3F); 
                         (*buf)++;
+                        *total_len += 1;
                     } else {
                         short_key = (unsigned short)(len_encode << 6) | (size & 0x3FFF); 
                         memcpy(*buf, &short_key, sizeof(short_key));
                         (*buf) += sizeof(short_key);
+                        *total_len += sizeof(short_key);
                     }
 
                     /* Simple encoded strings in value. Copy in */
                     memcpy(*buf, value, val_len);
+                    (*buf) += val_len;
+                    *total_len += val_len;
                     break;
                 default:
                     return EXOREDIS_ERR;
@@ -184,7 +205,7 @@ exoredis_return_codes
 exordb_decode_value (char  *buf,
                      char **value,
                      unsigned short *val_len,
-                     exoredis_value_type *val_type,
+                     exoredis_value_type  val_type,
                      exoredis_data_type  *data_type,
                      unsigned short *size)
 {
@@ -280,12 +301,39 @@ exordb_decode_value (char  *buf,
 
 void main()
 {
-    char buf[2048] = "\0";
+    char buf[2048];
+    char key[2048];
+    char *key_ptr = NULL;
+    char *eptr = NULL;
+    char *dptr = NULL;
+    unsigned int total_len = 0, i = 0;
+    exoredis_value_type dval;
+    unsigned short val_len, size;
+    exoredis_data_type data_type;
 
-    exordb_encode_type(&buf, ENCODING_VALUE_TYPE_STRING);
-    exordb_encode_key(&buf, "somekey", strlen("somekey"));
-    exordb_encode_value(&buf, "somekeyvalue", strlen("somekeyvalue"),
-    ENCODING_VALUE_TYPE_STRING, BULK_STRING_DATA_TYPE, 0);
+    memset(buf, 0 , 2048);
+    eptr = dptr = buf;
 
+    exordb_encode_type(&eptr, ENCODING_VALUE_TYPE_STRING, &total_len);
+    exordb_encode_key(&eptr, "somekey", strlen("somekey"), &total_len);
+    exordb_encode_value(&eptr, "somekeyvalue", strlen("somekeyvalue"),
+        ENCODING_VALUE_TYPE_STRING, BULK_STRING_DATA_TYPE, 0, &total_len);
+
+    printf("Length of encoded buffer %u\nBuffer:\n", total_len);
+    while (i < total_len) {
+        printf("%x",buf[i++]);
+    }
+    printf("\nTrying to decode \n");
+
+    dval = exordb_decode_type(&dptr);
+    printf("Type: %s\n", (dval == ENCODING_VALUE_TYPE_STRING)? "Correct":"Wrong");
+
+    key_ptr = key;
+    exordb_decode_key(&dptr, &key_ptr);
+    printf("Key: %s\n", key);
+
+    key_ptr = key;
+    exordb_decode_value(dptr, &key_ptr, &val_len, dval, &data_type, &size);
+    printf("Value: %s\n", key);
 }
 #endif
