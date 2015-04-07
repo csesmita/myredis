@@ -61,7 +61,7 @@ void exoredis_handle_set (char *key)
     printf("SET Command: SET %s %s\n", key, ptr);
     printf("SET Command: Length of args %d %d\n", strlen(key), strlen(ptr));
     /* Write the value into hash */
-
+    exoredis_create_update_he(key, ptr);
     return;
 }
 

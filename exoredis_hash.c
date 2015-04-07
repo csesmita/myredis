@@ -10,56 +10,59 @@
 #include <limits.h>
 
 exoredis_ht *ht = NULL;
+exoredis_ht *new_ht = NULL;
 
 void
-exoredis_create_ht (unsigned size)
+exoredis_create_ht (exoredis_ht **hash_t,
+                    unsigned size)
 {
     int i = 0;
-    ht = (exoredis_ht *) malloc(sizeof(exoredis_ht));
-    ht-> size = size;
-    ht->table = (exoredis_hash_entry **) malloc(size * sizeof(exoredis_hash_entry *));
+    *hash_t = (exoredis_ht *) malloc(sizeof(exoredis_ht));
+    (*hash_t)->size = size;
+    (*hash_t)->table = (exoredis_hash_entry **) malloc(size * sizeof(exoredis_hash_entry *));
     while (i < size) {
-        ht->table[i++] = NULL;
+        (*hash_t)->table[i++] = NULL;
     }
 }
 
 void
-exoredis_destroy_ht ( void )
+exoredis_destroy_ht (exoredis_ht **hash_t)
 {
     int i = 0;
     exoredis_hash_entry *temp = NULL;
 
-    if (!ht) {
+    if (!hash_t || !(*hash_t)) {
         return;
     }
 
-    while (i < ht->size) {
-        while(ht->table[i]) {
-            temp = ht->table[i];
-            ht->table[i] = ht->table[i]->next;
+    while (i < (*hash_t)->size) {
+        while((*hash_t)->table[i]) {
+            temp = (*hash_t)->table[i];
+            (*hash_t)->table[i] = (*hash_t)->table[i]->next;
             free(temp);
         }
         i++; 
     }
 
-    free(ht);
-    ht = NULL;
+    free(*hash_t);
+    *hash_t = NULL;
 }
 
 void
-exoredis_dump_ht ( void )
+exoredis_dump_ht (exoredis_ht **hash_t)
 {
     int i = 0;
     exoredis_hash_entry *temp = NULL;
 
-    if(!ht) {
+    if (!hash_t || !(*hash_t)) {
         return;
     }
 
-    while (i < ht->size) {
-        temp = ht->table[i];
+    while (i < (*hash_t)->size) {
+        temp = (*hash_t)->table[i];
         while (temp) {
-            printf("Hash %d:Got key value pair (%u,%u)\n", i, temp->key, temp->value);
+            printf("Hash %d:Lengths %d %d\n", i, temp->key_len, temp->value_len);
+            printf("Hash %d:Got key value pair (%s,%s)\n", i, temp->key, temp->value);
             temp = temp->next;
         }
         i++;
@@ -67,34 +70,38 @@ exoredis_dump_ht ( void )
 }
 
 unsigned int
-exoredis_hash_index (unsigned char *key)
+exoredis_hash_index (exoredis_ht **hash_t,
+                     unsigned char *key,
+                     int key_len)
 {
     unsigned int hash_value = EXOREDIS_HASH_SEED;
     unsigned int i = 0;
     unsigned char *temp_key = key;
 
-    while (hash_value < ULONG_MAX && i < strlen((const char *)(temp_key))) {
+    while (hash_value < ULONG_MAX && i < key_len) {
         hash_value = hash_value << 8;
         hash_value += temp_key[i++];
     }
-    printf("Hash value for key %u is %u\n", (unsigned int)(key), (unsigned int)(hash_value % ht->size));
-    return (unsigned int)(hash_value % ht->size);
+    printf("Hash index for key %s is %u\n", key, 
+           (unsigned int)(hash_value % (*hash_t)->size));
+    return (unsigned int)(hash_value % (*hash_t)->size);
 }
 
 void
-exoredis_destroy_he (unsigned int key)
+exoredis_destroy_he (unsigned char *key,
+                     int key_len)
 {
     exoredis_hash_entry *he_temp = NULL;
     exoredis_hash_entry *he_prev = NULL;
     int ht_index = 0;
     
-    ht_index = exoredis_hash_index((unsigned char *)&key);
+    ht_index = exoredis_hash_index(&ht, key, key_len);
 
     he_temp = ht->table[ht_index];
     he_prev = NULL;
 
     /* First check for the key/value pair */
-    while(he_temp && he_temp->key != key) {
+    while(he_temp && memcmp(he_temp->key, key, key_len)) {
         he_prev = he_temp;
         he_temp = he_temp->next;
     }
@@ -103,74 +110,164 @@ exoredis_destroy_he (unsigned int key)
         /* Node exists. Destroy it */
         if (he_temp == ht->table[ht_index]) {
             ht->table[ht_index] = ht->table[ht_index]->next;
-        } else {
+        } else if (he_prev) {
             he_prev->next = he_temp->next;
         }
         free(he_temp);
     } else {
-        /* Node doesn't exist. NOP */
-        printf("Key %d not found\n", key);
+        /* Node doesn't exist */
+        printf("Key %s not found in Update Hash\n", key);
+
+        ht_index = exoredis_hash_index(&new_ht, key, key_len);
+
+        he_temp = new_ht->table[ht_index];
+        he_prev = NULL;
+
+        /* First check for the key/value pair */
+        while(he_temp && memcmp(he_temp->key, key, key_len)) {
+            he_prev = he_temp;
+            he_temp = he_temp->next;
+        }
+
+        if (he_temp) {
+            /* Node exists. Destroy it */
+            if (he_temp == new_ht->table[ht_index]) {
+                new_ht->table[ht_index] = new_ht->table[ht_index]->next;
+            } else if (he_prev) {
+                he_prev->next = he_temp->next;
+            }
+            free(he_temp);
+        } else {
+            /* Node doesn't exist. NOP */
+            printf("Key %s not found in Create Hash as well\n", key);
+        }
+
     }
 }
 
 void
-exoredis_create_update_he (unsigned int key, 
-                           unsigned int value)
+exoredis_create_update_he (unsigned char * key, 
+                           int key_len,
+                           unsigned char * value,
+                           int value_len)
 {
     exoredis_hash_entry *he_temp = NULL;
     exoredis_hash_entry *he_prev = NULL;
+    exoredis_hash_entry *he_next = NULL;
     int ht_index = 0;
     
-    ht_index = exoredis_hash_index((unsigned char *)&key);
+    ht_index = exoredis_hash_index(&ht, key, key_len);
     he_temp = ht->table[ht_index];
 
     he_prev = NULL;
 
     /* First check for the key/value pair */
-    while(he_temp && he_temp->key != key) {
+    while(he_temp && memcmp(he_temp->key,key, key_len)) {
         he_prev = he_temp;
         he_temp = he_temp->next;
     }
 
     if (he_temp) {
         /* Node exists. Update the value */
-        he_temp->value = value;
-    } else {
-        /* Node doesn't exist. Create a new entry */
-        he_temp = (exoredis_hash_entry *)malloc(sizeof(exoredis_hash_entry));
-        he_temp->next = NULL;
-        he_temp->key = key;
-        he_temp->value = value;
-        if (he_prev) {
-            he_temp->next = he_prev->next;
-            he_prev->next = he_temp;
+        if (value_len == he_temp->value_len) {
+            memcpy(he_temp->value, value, value_len);
         } else {
-            ht->table[ht_index] = he_temp;
+            he_next = he_temp->next;
+            he_temp = (exoredis_hash_entry *)realloc(he_temp, 
+                       sizeof(exoredis_hash_entry) + value_len);
+            memset(he_temp, 0, sizeof(exoredis_hash_entry) + value_len);
+            memcpy(he_temp->value, value, value_len);
+            memcpy(he_temp->key, key, key_len);
+            he_temp->key_len = key_len;
+            he_temp->value_len = value_len;
+            he_temp->next = he_next;
+        }
+    } else {
+        /* Node doesn't exist. Lookup in the new hash */
+        ht_index = exoredis_hash_index(&new_ht, key, key_len);
+        he_temp = new_ht->table[ht_index];
+
+        he_prev = NULL;
+
+        /* First check for the key/value pair */
+        while(he_temp && memcmp(he_temp->key, key, key_len)) {
+            he_prev = he_temp;
+            he_temp = he_temp->next;
+        }
+
+        if (he_temp) {
+            /* Node exists. Update the value */
+            he_next = he_temp->next;
+            he_temp = (exoredis_hash_entry *)realloc(he_temp, 
+                       sizeof(exoredis_hash_entry) + value_len);
+            memset(he_temp, 0, sizeof(exoredis_hash_entry) + value_len);
+            memcpy(he_temp->value, value, value_len);
+            memcpy(he_temp->key, key, key_len);
+            he_temp->key_len = key_len;
+            he_temp->value_len = value_len;
+            he_temp->next = he_next;
+        } else {
+            he_temp = (exoredis_hash_entry *)malloc(sizeof(exoredis_hash_entry)
+                                                    + value_len);
+            memset(he_temp, 0, sizeof(exoredis_hash_entry) + value_len);
+            he_temp->next = NULL;
+            memcpy(he_temp->key, key, key_len);
+            memcpy(he_temp->value, value, value_len);
+            he_temp->key_len = key_len;
+            he_temp->value_len = value_len;
+
+            if (he_prev) {
+                he_temp->next = he_prev->next;
+                he_prev->next = he_temp;
+            } else {
+                new_ht->table[ht_index] = he_temp;
+            }
         }
     }
+    printf("Dumping hash tree \n");
+    exoredis_dump_ht(&ht);
+    printf("Dumping new hash tree \n");
+    exoredis_dump_ht(&new_ht);
 }
 
-unsigned int
-exoredis_read_he (unsigned int key)
+void
+exoredis_read_he (unsigned char * key,
+                  int key_len)
 {
     exoredis_hash_entry *he_temp = NULL;
     int ht_index = 0;
     
-    ht_index = exoredis_hash_index((unsigned char *)&key);
+    ht_index = exoredis_hash_index(&ht, key, key_len);
     he_temp = ht->table[ht_index];
 
     /* First check for the key/value pair */
-    while(he_temp && he_temp->key != key) {
+    while(he_temp && memcmp(he_temp->key, key, key_len)) {
         he_temp = he_temp->next;
     }
 
     if (he_temp) {
         /* Node exists. Return the value */
-        printf("Returning key value pair (%d,%d)\n",he_temp->key, he_temp->value);
-        return he_temp->value;
+        printf("Returning key value pair (%s,%s)\n",he_temp->key, he_temp->value);
+        return;
     }
-    printf("Key %d not found in DB\n",key);
-    return EXOREDIS_DB_VAL_INVALID;
+
+    /* Now check the New hash */
+    ht_index = exoredis_hash_index(&new_ht, key, key_len);
+    he_temp = new_ht->table[ht_index];
+
+    /* First check for the key/value pair */
+    while(he_temp && memcmp(he_temp->key, key, key_len)) {
+        he_temp = he_temp->next;
+    }
+
+    if (he_temp) {
+        /* Node exists. Return the value */
+        printf("Returning key value pair (%s,%s)\n",he_temp->key, he_temp->value);
+        return;
+    }
+
+    printf("Key %s not found in DB\n",key);
+    return;
 }
 
 /* Dump the entries in the HT to the DB file */
@@ -193,28 +290,72 @@ exoredis_feed_ht_to_io (void)
     }
 }
 
+/* Copy the entry from new hash to update hash and delete the entry */
+void
+exoredis_copy_to_update_hash_and_delete (unsigned char * key,
+                                         int key_len,
+                                         exoredis_hash_entry **he_input,
+                                         exoredis_hash_entry **he_input_prev,
+                                         int new_t_index)
+{
+    exoredis_hash_entry *he_update = NULL;
+    int ht_index = 0;
+    int value_len = 0;
 
-#if HASH_TEST_MODE
+    if (!he_input || !*he_input) {
+        return;
+    }
+
+    /* Add new entry into ht */
+    ht_index = exoredis_hash_index(&ht, key, key_len);
+    he_update  = ht->table[ht_index];
+
+    /* Insert into front of hash index, to save walk to the end */
+    value_len = (*he_input)->value_len;
+    he_update = (exoredis_hash_entry *)malloc(sizeof(exoredis_hash_entry) 
+                                              + value_len);
+    memset(he_update, 0, sizeof(exoredis_hash_entry) + value_len);
+    memcpy(he_update->key,(*he_input)->key, (*he_input)->key_len);
+    memcpy(he_update->value,(*he_input)->value, (*he_input)->value_len);
+    he_update->next = ht->table[ht_index];
+    ht->table[ht_index] = he_update;
+
+    /* Now delete the node from new hash */
+    if ((*he_input) == new_ht->table[new_t_index]) {
+        /* First entry at the index */
+        new_ht->table[new_t_index] = new_ht->table[new_t_index]->next;
+    } else if (he_input_prev && *he_input_prev) {
+        /* Node exists midway or at the end */
+        (*he_input_prev)->next = (*he_input)->next;
+    }
+    free(*he_input);
+    *he_input = NULL;
+}
+
+#ifdef HASH_TEST_MODE
 
 /*********************************************/
 /*********************TESTING ****************/
 
 main()
 {
-    exoredis_create_ht(40);
-    exoredis_create_update_he(198,17);
-    exoredis_create_update_he(223, 34);
-    exoredis_create_update_he(198, 35);
-    exoredis_create_update_he(223, 34);
-    exoredis_create_update_he(225, 34);
-    exoredis_create_update_he(96, 34);
-    exoredis_create_update_he(3696, 34);
-    exoredis_dump_ht();
-    exoredis_read_he(198);
-    exoredis_dump_ht();
-    exoredis_destroy_he(198);
-    exoredis_destroy_he(134);
-    exoredis_destroy_ht();
+    exoredis_create_ht(&ht, EXOREDIS_HASH_TABLE_SIZE);
+    exoredis_create_ht(&new_ht, EXOREDIS_HASH_TABLE_SIZE);
+    exoredis_create_update_he("somekey", strlen("somekey"), "somekeyval", strlen("somekeyval"));
+    exoredis_create_update_he("treetop animal", strlen("treetop animal"), "monkey", strlen("monkey"));
+    exoredis_create_update_he("my\tbinary\t\nkey", 17, "and\tnow\tmy\binary\val\r\n", 27);
+    exoredis_dump_ht(&ht);
+    exoredis_dump_ht(&new_ht);
+    exoredis_read_he("somekey",strlen("somekey"));
+    exoredis_read_he("my\tbinary\t\nkey",17);
+    exoredis_dump_ht(&ht);
+    exoredis_dump_ht(&new_ht);
+    exoredis_destroy_he("somekey", strlen("somekey"));
+    exoredis_destroy_he("treetop animal", strlen("treetop animal"));
+    exoredis_dump_ht(&ht);
+    exoredis_dump_ht(&new_ht);
+    exoredis_destroy_ht(&ht);
+    exoredis_destroy_ht(&new_ht);
 }
 
 #endif
