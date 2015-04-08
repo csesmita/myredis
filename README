@@ -22,4 +22,5 @@ Limitations:
 7. SAVE (Or Program Exit): For each entry in hash table, create or update value
    into DB file. Since DELETE is not implemnented, no other case needs
    handling.
-8. Keys are currently implemented only as simple strings. Values can be bulk strings as well.
+8. Spaces are considered valid characters in value, so trailing spaces in value
+   are not pruned.

@@ -6,46 +6,47 @@
 #include "exoredis.h"
 #include "exoredis_server.h"
 #include "exordb.h"
-
+#include "exoredis_hash.h"
 /*
  * exoredis_str_to_cmd:
  * Interpretes incoming request to figure out the command
  */
-exoredis_supported_cmds exoredis_str_to_cmd(char *cmd)
+exoredis_supported_cmds exoredis_str_to_cmd(char *cmd,
+                                            int command_len)
 {
-    if (!strncmp(cmd, "GET", strlen("GET"))) {
+    if (!memcmp(cmd, "GET", command_len)) {
         return EXOREDIS_CMD_GET;
     }
     
-    if (!strncmp(cmd, "SET", strlen("SET"))) {
+    if (!memcmp(cmd, "SET", command_len)) {
         return EXOREDIS_CMD_SET;
     }
     
-    if (!strncmp(cmd, "GETBIT", strlen("GETBIT"))) {
+    if (!memcmp(cmd, "GETBIT", command_len)) {
         return EXOREDIS_CMD_GETBIT;
     }
 
-    if (!strncmp(cmd, "SETBIT", strlen("SETBIT"))) {
+    if (!memcmp(cmd, "SETBIT", command_len)) {
         return EXOREDIS_CMD_SETBIT;
     }
 
-    if (!strncmp(cmd, "ZADD", strlen("ZADD"))) {
+    if (!memcmp(cmd, "ZADD", command_len)) {
         return EXOREDIS_CMD_ZADD;
     }
 
-    if (!strncmp(cmd, "ZCOUNT", strlen("ZCOUNT"))) {
+    if (!memcmp(cmd, "ZCOUNT", command_len)) {
         return EXOREDIS_CMD_ZCOUNT;
     }
 
-    if (!strncmp(cmd, "ZCARD", strlen("ZCARD"))) {
+    if (!memcmp(cmd, "ZCARD", command_len)) {
         return EXOREDIS_CMD_ZCARD;
     }
 
-    if (!strncmp(cmd, "ZRANGE", strlen("ZRANGE"))) {
+    if (!memcmp(cmd, "ZRANGE", command_len)) {
         return EXOREDIS_CMD_ZRANGE;
     }
 
-    if (!strncmp(cmd, "SAVE", strlen("SAVE"))) {
+    if (!memcmp(cmd, "SAVE", command_len)) {
         return EXOREDIS_CMD_SAVE;
     }
 
@@ -57,22 +58,34 @@ exoredis_supported_cmds exoredis_str_to_cmd(char *cmd)
  * Function that decides the type of request sent by the client
  * It then invokes the appropriate handler
  */
-void exoredis_process_request(char *buf)
+void exoredis_process_request(unsigned char *buf,
+                              int read_len)
 {
-    char *ptr = buf;
+    unsigned char *ptr = buf;
     exoredis_supported_cmds cmd;
+    int command_len = 0;
+    int args_len = 0;
     
     /* Split buf into command arguments */
-    while (*++ptr != ' ');
-    *ptr = '\0';
+    while ((*ptr != ' ') && (command_len < read_len)) {
+        ptr++; command_len++;
+    }
 
-    cmd = exoredis_str_to_cmd(buf);
+    cmd = exoredis_str_to_cmd((char *)(buf), command_len);
 
     if(cmd == EXOREDIS_CMD_MAX) {
         printf("Unrecognized command %s", buf);
         return;
     }
-    buf = ++ptr;
+    args_len = read_len - command_len;
+
+    while ((*ptr == ' ') && (args_len > 0)) {
+        ptr++; args_len--;
+    }
+
+    if (args_len > 0) {
+        buf = ptr;
+    }
 
     switch(cmd) {
 #if 0
@@ -81,35 +94,37 @@ void exoredis_process_request(char *buf)
             return exoredis_handle_get(buf);
 #endif
         case EXOREDIS_CMD_SET:
-            printf("Arguments to command %s\n", buf);
-            return exoredis_handle_set(buf);
+            return exoredis_handle_set(buf, args_len);
 #if 0
         case EXOREDIS_CMD_GETBIT:
             printf("Arguments to command %s\n", buf);
-            return exoredis_handle_getbit();
+            return exoredis_handle_getbit(buf);
 
         case EXOREDIS_CMD_SETBIT:
             printf("Arguments to command %s\n", buf);
-            return exoredis_handle_setbit();
+            return exoredis_handle_setbit(buf);
 
         case EXOREDIS_CMD_ZADD:
             printf("Arguments to command %s\n", buf);
-            return exoredis_handle_zadd();
+            return exoredis_handle_zadd(buf);
 
         case EXOREDIS_CMD_ZCOUNT:
             printf("Arguments to command %s\n", buf);
-            return exoredis_handle_zcount();
+            return exoredis_handle_zcount(buf);
 
         case EXOREDIS_CMD_ZCARD:
             printf("Arguments to command %s\n", buf);
-            return exoredis_handle_zcard();
+            return exoredis_handle_zcard(buf);
 
         case EXOREDIS_CMD_ZRANGE:
             printf("Arguments to command %s\n", buf);
-            return exoredis_handle_zrange();
+            return exoredis_handle_zrange(buf);
 
         case EXOREDIS_CMD_SAVE:
-            return exoredis_handle_save(buf);
+            if (command_len < read_len) {
+                printf("SAVE doesn't take arguments\n");
+            }
+            return exoredis_handle_save();
 #endif
 
         default:
@@ -125,36 +140,41 @@ void exoredis_process_request(char *buf)
  */
 void exoredis_handle_client_req(void)
 {
-    char buf[MAX_REQ_RESP_MSGLEN] = "\0";
-    char *bufptr = buf;
-    unsigned templen = 0;
+    unsigned char buf[MAX_REQ_RESP_MSGLEN + 1] = "\0";
+    unsigned char *bufptr = buf;
     int fd = exoredis_io.fd;
+    int read_len = 0;
+
+    /* Initialize hash trees */
+    exoredis_init_ht();
 
     while (1) {
-        memset(buf, 0, MAX_REQ_RESP_MSGLEN);
+        memset(buf, 0, MAX_REQ_RESP_MSGLEN + 1);
 
         /* Read request from this client */
-        read(fd, buf, MAX_REQ_RESP_MSGLEN);
+        read_len = read(fd, buf, MAX_REQ_RESP_MSGLEN);
+
+        /* Prune the trailing /r/n */
+        read_len -= 2;
 
         /* Prune leading white-spaces */
-        while ((*bufptr == ' ') && templen < MAX_REQ_RESP_MSGLEN) {
+        bufptr = buf;
+        while ((*bufptr == ' ') && (read_len > 0)) {
             bufptr++;
-            templen++;
+            read_len--;
         }
 
-        if (templen == MAX_REQ_RESP_MSGLEN) {
+        if (read_len == 0) {
             /* All spaces */
             continue;
         }
 
-        printf("Client sends %s\n",bufptr);
-
-        exoredis_process_request(bufptr);
+        exoredis_process_request(bufptr, read_len);
     }
 }
 
 void
-exoredis_io_init (oid)
+exoredis_io_init (void)
 {
    exoredis_io.fd = -1;
    exoredis_io.dbfp = NULL;

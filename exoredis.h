@@ -24,7 +24,7 @@
 
 #define EXOREDIS_SERVER_TCP_PORT 15000
 
-#define MAX_REQ_RESP_MSGLEN 128
+#define MAX_REQ_RESP_MSGLEN 1024
 
 typedef enum exoredis_data_type
 {

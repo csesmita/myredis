@@ -47,21 +47,33 @@ void exoredis_resp_ok(char *msg)
     send(exoredis_io.fd, buf, strlen(buf), MSG_DONTWAIT);
 }
 
-void exoredis_handle_set (char *key)
+void exoredis_handle_set (unsigned char *key,
+                          int args_len)
 {
-    char *ptr = NULL;
+    unsigned char *ptr = NULL;
+    int key_len = 0;
+    int value_len = 0;
 
     /* Format : SET key string */
     ptr = key;
-    while (*++ptr != ' ');
-    *ptr++ = '\0';
-    if (!strlen(key) || !strlen(ptr)) {
+
+    /* Check for key value format */
+    while ((*ptr != ' ') && (key_len < args_len)) {
+        ptr++; key_len++;
+    }
+    printf("key_len %d ptr %s\n", key_len, ptr);
+    value_len = args_len - key_len;
+    while ((*ptr == ' ') && (value_len > 0)) {
+        ptr++; value_len--;
+    }
+
+    if (!key_len || !value_len) {
         return exoredis_resp_error("Incorrect arguments to SET\n");
     }
     printf("SET Command: SET %s %s\n", key, ptr);
-    printf("SET Command: Length of args %d %d\n", strlen(key), strlen(ptr));
+    printf("SET Command: Length of args %d %d\n", key_len, value_len);
     /* Write the value into hash */
-    exoredis_create_update_he(key, ptr);
+    exoredis_create_update_he(key, key_len, ptr, value_len);
     return;
 }
 

@@ -82,8 +82,10 @@ exoredis_hash_index (exoredis_ht **hash_t,
         hash_value = hash_value << 8;
         hash_value += temp_key[i++];
     }
+    /*
     printf("Hash index for key %s is %u\n", key, 
            (unsigned int)(hash_value % (*hash_t)->size));
+    */
     return (unsigned int)(hash_value % (*hash_t)->size);
 }
 
@@ -146,9 +148,9 @@ exoredis_destroy_he (unsigned char *key,
 }
 
 void
-exoredis_create_update_he (unsigned char * key, 
+exoredis_create_update_he (unsigned char *key, 
                            int key_len,
-                           unsigned char * value,
+                           unsigned char *value,
                            int value_len)
 {
     exoredis_hash_entry *he_temp = NULL;
@@ -231,7 +233,7 @@ exoredis_create_update_he (unsigned char * key,
 }
 
 void
-exoredis_read_he (unsigned char * key,
+exoredis_read_he (unsigned char *key,
                   int key_len)
 {
     exoredis_hash_entry *he_temp = NULL;
@@ -292,7 +294,7 @@ exoredis_feed_ht_to_io (void)
 
 /* Copy the entry from new hash to update hash and delete the entry */
 void
-exoredis_copy_to_update_hash_and_delete (unsigned char * key,
+exoredis_copy_to_update_hash_and_delete (unsigned char *key,
                                          int key_len,
                                          exoredis_hash_entry **he_input,
                                          exoredis_hash_entry **he_input_prev,
@@ -330,6 +332,13 @@ exoredis_copy_to_update_hash_and_delete (unsigned char * key,
     }
     free(*he_input);
     *he_input = NULL;
+}
+
+void
+exoredis_init_ht (void)
+{
+    exoredis_create_ht(&ht, EXOREDIS_HASH_TABLE_SIZE);
+    exoredis_create_ht(&new_ht, EXOREDIS_HASH_TABLE_SIZE);
 }
 
 #ifdef HASH_TEST_MODE
