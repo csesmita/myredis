@@ -88,13 +88,14 @@ void exoredis_process_request(unsigned char *buf,
     }
 
     switch(cmd) {
-#if 0
         case EXOREDIS_CMD_GET:
             printf("Arguments to command %s\n", buf);
-            return exoredis_handle_get(buf);
-#endif
+            return exoredis_handle_get(buf, args_len);
+
         case EXOREDIS_CMD_SET:
+            printf("Arguments to command %s\n", buf);
             return exoredis_handle_set(buf, args_len);
+
 #if 0
         case EXOREDIS_CMD_GETBIT:
             printf("Arguments to command %s\n", buf);
@@ -120,12 +121,12 @@ void exoredis_process_request(unsigned char *buf,
             printf("Arguments to command %s\n", buf);
             return exoredis_handle_zrange(buf);
 
+#endif
         case EXOREDIS_CMD_SAVE:
             if (command_len < read_len) {
                 printf("SAVE doesn't take arguments\n");
             }
             return exoredis_handle_save();
-#endif
 
         default:
             break;

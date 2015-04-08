@@ -46,7 +46,6 @@ typedef enum {
     ERROR_STRING_MAX,
 }exoredis_error_strings;
 
-#define EXOREDIS_RESP_LEN 1024
 
 typedef enum supported_cmds
 {

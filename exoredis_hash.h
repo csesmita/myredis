@@ -58,8 +58,10 @@ exoredis_create_update_he (unsigned char * key,
                            unsigned char * value,
                            int value_len);
 void
-exoredis_read_he (unsigned char * key,
-                  int key_len);
+exoredis_read_he (unsigned char *key,
+                  int key_len,
+                  unsigned char **value,
+                  int *value_len);
 void
 exoredis_copy_to_update_hash_and_delete (unsigned char * key,
                                          int key_len,

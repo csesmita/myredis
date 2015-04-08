@@ -234,7 +234,9 @@ exoredis_create_update_he (unsigned char *key,
 
 void
 exoredis_read_he (unsigned char *key,
-                  int key_len)
+                  int key_len,
+                  unsigned char **value,
+                  int *value_len)
 {
     exoredis_hash_entry *he_temp = NULL;
     int ht_index = 0;
@@ -265,10 +267,14 @@ exoredis_read_he (unsigned char *key,
     if (he_temp) {
         /* Node exists. Return the value */
         printf("Returning key value pair (%s,%s)\n",he_temp->key, he_temp->value);
+        /* Onus of deallocation on the calling function */
+        *value = (unsigned char *)malloc(he_temp->value_len);
+        memcpy(*value, he_temp->value, he_temp->value_len);
+        *value_len = he_temp->value_len;
         return;
     }
 
-    printf("Key %s not found in DB\n",key);
+    printf("Invalid Key\n");
     return;
 }
 
