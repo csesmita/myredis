@@ -176,10 +176,10 @@ exoredis_parse_bit_arg (unsigned char **buf,
         (*buf)++; (*args_len)--;
     }
 
-    if (**buf & ~1) {
+    *bitset = (unsigned char)(atoi((char *)(*buf)));
+    if (*bitset & ~1) {
         return EXOREDIS_BO_ARGS_INVALID;
     }
-    *bitset = **buf;
     return (*args_len == 0)? EXOREDIS_ARGS_MISSING : EXOREDIS_OK;
 
 }
@@ -285,6 +285,7 @@ void exoredis_handle_setbit (unsigned char *key,
         return;
     }
 
+    printf("SETBIT Command: SETBIT %s (%d) \n", key, key_len);
     bitpos = key + key_len;
     if ((ret = exoredis_parse_bitoffset_arg(&bitpos, &args_len, &bo,
                                             &bitpos_len) != EXOREDIS_OK)) {
@@ -296,6 +297,7 @@ void exoredis_handle_setbit (unsigned char *key,
         return;
     }
 
+    printf("SETBIT Command: SETBIT %s (%d) %u \n", key, key_len, bo);
     bitchar = bitpos + bitpos_len;
     if ((ret = exoredis_parse_bit_arg(&bitchar, &args_len, &bitset) !=
         EXOREDIS_OK)) {
