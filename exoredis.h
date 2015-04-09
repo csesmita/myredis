@@ -49,7 +49,7 @@ typedef enum {
 
 typedef enum supported_cmds
 {
-    EXOREDIS_CMD_GET,
+    EXOREDIS_CMD_GET = 1,
     EXOREDIS_CMD_SET,
     EXOREDIS_CMD_GETBIT,
     EXOREDIS_CMD_SETBIT,

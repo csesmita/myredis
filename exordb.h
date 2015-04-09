@@ -121,10 +121,14 @@ typedef enum _exoredis_value_type {
  *
  */
 
+#define UINT_MAX 4294967295U 
+
 /* Status codes for encoding/decoding */
 typedef enum {
     EXOREDIS_OK,
     EXOREDIS_ERR,
+    EXOREDIS_ARGS_MISSING,
+    EXOREDIS_BO_ARGS_INVALID,
 } exoredis_return_codes;
 
 struct _exoredis_io {

@@ -2,6 +2,7 @@
 #include "exoredis_server.h"
 #include "exoredis_hash.h"
 #include "exordb.h"
+#include <ctype.h>
 
 /* Define prefix strings for the data types */
 char prefix_string[MAX_DATA_TYPE] = {'+','-',':','$','*'};
@@ -15,39 +16,6 @@ char simple_string[SIMPLE_STRING_MAX][SIMPLE_STRING_MAX_LEN] = {"OK "};
 #define ERROR_STRING_MAX_LEN 5
 char error_string[ERROR_STRING_MAX][ERROR_STRING_MAX_LEN] = {"ERR "};
 
-#if 0
-/*
- * exoredis_handle_get():
- * This function handles the REDIS protocol GET request
- * It looks up the DB file passed in as argument, and:
- * 1. If key exists, returns the value if the value is string. 
- * 2. If key exists, error is returned if value is not string
- * 3. If key does not exist, returns a bulk string nil.
- */
-#endif
-
-unsigned char *
-exoredis_parse_args (unsigned char *key,
-                     int args_len,
-                     int *key_len,
-                     int *value_len)
-{
-    unsigned char *ptr = key;
-    *key_len = 0;
-    *value_len = 0;
-
-    /* Check for key value format */
-    while ((*ptr != ' ') && (*key_len < args_len)) {
-        ptr++; (*key_len)++;
-    }
-
-    *value_len = args_len - *key_len;
-    while ((*ptr == ' ') && (*value_len > 0)) {
-        ptr++; (*value_len)--;
-    }
-
-    return ptr;
-}
 
 void exoredis_resp_error(char *msg)
 {
@@ -121,6 +89,101 @@ void exoredis_resp_bulk_string (unsigned char *msg,
     send(exoredis_io.fd, buf, buf_len, MSG_DONTWAIT);
 }
 
+exoredis_return_codes
+exoredis_parse_key_arg (unsigned char **key,
+                        int *args_len,
+                        int *key_len)
+{
+    *key_len = 0;
+    unsigned char *ptr = *key;
+
+    /* Check for key value format */
+    while ((*ptr == ' ') && (*args_len > 0)) {
+         ptr++; (*args_len)--;
+    }
+
+    while (*ptr != ' ' && (*args_len > 0)) {
+        ptr++; (*args_len)--; (*key_len)++;
+    }
+
+    return (*key_len == 0)? EXOREDIS_ARGS_MISSING: EXOREDIS_OK;
+}
+
+exoredis_return_codes
+exoredis_parse_value_arg (unsigned char **value,
+                          int *args_len,
+                          int *value_len)
+{
+    *value_len = *args_len;
+    while ((**value == ' ') && (*value_len > 0)) {
+        (*value)++; (*value_len)--; (*args_len)--;
+    }
+
+    return (*value_len == 0)? EXOREDIS_ARGS_MISSING: EXOREDIS_OK;
+}
+
+exoredis_return_codes
+exoredis_parse_bitoffset_arg (unsigned char **bo,
+                              int *args_len,
+                              unsigned int *bo_value,
+                              int *bitpos_len)
+{
+    long long value = 0;
+    unsigned char *bo_start = NULL;
+    *bitpos_len = 0;
+
+    while ((**bo == ' ') && (*args_len > 0)) {
+        (*bo)++; (*args_len)--;
+    }
+
+    if (*args_len == 0) {
+        return EXOREDIS_ARGS_MISSING;
+    }
+
+    bo_start = *bo;
+    /* We have a non-space character */
+    while (isdigit(**bo) && (*args_len) > 0) {
+        (*bo)++; (*args_len)--; (*bitpos_len)++;
+    }
+
+    if (*args_len != 0) {
+        /* At this point only a space is expected */
+        if (!isspace(**bo)) {
+            /* Unexpected non-digit character */
+            return EXOREDIS_BO_ARGS_INVALID;
+        }
+    }
+
+    /* Convert value between bo_start and *bo to an integer */
+    value = strtoll((char *)bo_start, (char **)bo, 10);
+
+    if ((value < 0) || (value > UINT_MAX)) {
+        /* Unexpected non-digit character */
+        return EXOREDIS_BO_ARGS_INVALID;
+    }
+    *bo_value = (unsigned int)(value);
+
+    return EXOREDIS_OK;
+}
+
+
+exoredis_return_codes
+exoredis_parse_bit_arg (unsigned char **buf,
+                        int *args_len,
+                        unsigned char *bitset)
+{
+    while ((**buf == ' ') && (*args_len > 0)) {
+        (*buf)++; (*args_len)--;
+    }
+
+    if (**buf & ~1) {
+        return EXOREDIS_BO_ARGS_INVALID;
+    }
+    *bitset = **buf;
+    return (*args_len == 0)? EXOREDIS_ARGS_MISSING : EXOREDIS_OK;
+
+}
+
 void exoredis_handle_set (unsigned char *key,
                           int args_len)
 {
@@ -129,9 +192,16 @@ void exoredis_handle_set (unsigned char *key,
     int value_len = 0;
 
     /* Format : SET key string */
-    ptr = exoredis_parse_args(key, args_len, &key_len, &value_len);
-    if (!(key_len) || !(value_len)) {
-        exoredis_resp_error("Incorrect arguments to command\n");
+    if (exoredis_parse_key_arg(&key, &args_len, &key_len) == 
+         EXOREDIS_ARGS_MISSING) {
+        exoredis_resp_error("wrong number of arguments for 'SET' command");
+        return;
+    }
+
+    ptr = key + key_len;
+    if (exoredis_parse_value_arg(&ptr, &args_len, &value_len) ==
+        EXOREDIS_ARGS_MISSING) {
+        exoredis_resp_error("wrong number of arguments for 'SET' command");
         return;
     }
 
@@ -142,6 +212,14 @@ void exoredis_handle_set (unsigned char *key,
     return;
 }
 
+/*
+ * exoredis_handle_get():
+ * This function handles the REDIS protocol GET request
+ * It looks up the DB file passed in as argument, and:
+ * 1. If key exists, returns the value if the value is string. 
+ * 2. If key exists, error is returned if value is not string
+ * 3. If key does not exist, returns a bulk string nil.
+ */
 
 void exoredis_handle_get (unsigned char *key,
                           int args_len)
@@ -150,10 +228,17 @@ void exoredis_handle_get (unsigned char *key,
     int value_len = 0;
     unsigned char *value = NULL;
 
-    /* Format : SET key string */
-    exoredis_parse_args(key, args_len, &key_len, &value_len);
-    if (!(key_len) || value_len) {
-        exoredis_resp_error("Incorrect arguments to command\n");
+    if (exoredis_parse_key_arg(&key, &args_len, &key_len) == 
+        EXOREDIS_ARGS_MISSING) {
+        exoredis_resp_error("wrong number of arguments for 'GET' command");
+        return;
+    }
+
+    value = key + key_len;
+    if (exoredis_parse_value_arg(&value, &args_len, &value_len) ==
+        EXOREDIS_OK) {
+        /* Hmm we don't expect anything beyond the key */
+        exoredis_resp_error("wrong number of arguments for 'GET' command");
         return;
     }
 
@@ -180,5 +265,49 @@ void exoredis_handle_save (void)
 
     /* For all other entries that exist, look for duplicates and delete */
     
+    return;
+}
+
+void exoredis_handle_setbit (unsigned char *key,
+                             int args_len)
+{
+    unsigned int bo = 0;
+    int key_len = 0;
+    int bitpos_len = 0;
+    unsigned char bitset;
+    exoredis_return_codes ret;
+    unsigned char *bitpos;
+    unsigned char *bitchar;
+
+    if (exoredis_parse_key_arg(&key, &args_len, &key_len) == 
+         EXOREDIS_ARGS_MISSING) {
+        exoredis_resp_error("wrong number of arguments for 'SETBIT' command");
+        return;
+    }
+
+    bitpos = key + key_len;
+    if ((ret = exoredis_parse_bitoffset_arg(&bitpos, &args_len, &bo,
+                                            &bitpos_len) != EXOREDIS_OK)) {
+        if (ret == EXOREDIS_ARGS_MISSING) {
+            exoredis_resp_error("wrong number of arguments for 'SETBIT' command");
+        } else {
+            exoredis_resp_error("bit offset is not a integer or out of range");
+        }
+        return;
+    }
+
+    bitchar = bitpos + bitpos_len;
+    if ((ret = exoredis_parse_bit_arg(&bitchar, &args_len, &bitset) !=
+        EXOREDIS_OK)) {
+            if (ret == EXOREDIS_BO_ARGS_INVALID) {
+                exoredis_resp_error("bit offset is not a integer or out of range");
+            } else {
+                exoredis_resp_error("wrong number of arguments for 'SETBIT' command");
+            }
+            return;
+    }
+    printf("SETBIT Command: SETBIT %s (%d) %u %c \n", key, key_len, bo, bitset);
+
+    exoredis_resp_ok();
     return;
 }
