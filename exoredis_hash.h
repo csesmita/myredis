@@ -1,5 +1,7 @@
 #ifndef EXOREDIS_HASH_H_
 #define EXOREDIS_HASH_H_
+#include "exordb.h"
+
 
 /* To make the hashes work fast, adopt static length for buffers */
 #define EXOREDIS_HASH_KEY_LEN 100
@@ -53,11 +55,11 @@ exoredis_destroy_he (unsigned char *key,
                      int key_len);
 
 void
-exoredis_create_update_he (unsigned char * key, 
+exoredis_lookup_create_update_he (unsigned char * key, 
                            int key_len,
                            unsigned char * value,
                            int value_len);
-void
+void *
 exoredis_read_he (unsigned char *key,
                   int key_len,
                   unsigned char **value,
@@ -68,4 +70,19 @@ exoredis_copy_to_update_hash_and_delete (unsigned char * key,
                                          exoredis_hash_entry **he_input,
                                          exoredis_hash_entry **he_input_prev,
                                          int new_t_index);
+
+
+exoredis_return_codes
+exoredis_set_reset_bitoffset (unsigned char *key,
+                              int key_len,
+                              unsigned int offset,
+                              int bitval,
+                              unsigned char *orig_bitval);
+
+exoredis_return_codes
+exoredis_get_bitoffset (unsigned char *key,
+                        int key_len,
+                        unsigned int bit_offset,
+                        unsigned char *orig_bitval);
+
 #endif

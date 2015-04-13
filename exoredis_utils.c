@@ -63,6 +63,28 @@ void exoredis_resp_ok(void)
     send(exoredis_io.fd, buf, buf_len, MSG_DONTWAIT);
 }
 
+void exoredis_resp_integer (int val)
+{
+    char buf[MAX_REQ_RESP_MSGLEN];
+    char *ptr = buf;
+    int buf_len = 0;
+
+    memset(ptr, 0, MAX_REQ_RESP_MSGLEN);
+    /* OK  to use string operations since these are always simple strings */
+    *ptr++ = prefix_string[INTEGER_DATA_TYPE];
+    buf_len++;
+    sprintf((char *)ptr, "%d", val);
+
+    ptr += sizeof(val);
+    buf_len += sizeof(val);
+
+    memcpy(ptr, trail_string, TRAIL_STRING_LEN);
+    ptr += TRAIL_STRING_LEN;
+    buf_len += TRAIL_STRING_LEN;
+    
+    send(exoredis_io.fd, buf, buf_len, MSG_DONTWAIT);
+}
+
 void exoredis_resp_bulk_string (unsigned char *msg,
                                 int len)
 {
@@ -207,7 +229,7 @@ void exoredis_handle_set (unsigned char *key,
 
     printf("SET Command: SET %s %d %s %d \n", key, key_len, ptr, value_len);
     /* Write the value into hash */
-    exoredis_create_update_he(key, key_len, ptr, value_len);
+    exoredis_lookup_create_update_he(key, key_len, ptr, value_len);
     exoredis_resp_ok();
     return;
 }
@@ -278,6 +300,7 @@ void exoredis_handle_setbit (unsigned char *key,
     exoredis_return_codes ret;
     unsigned char *bitpos;
     unsigned char *bitchar;
+    unsigned char orig_val;
 
     if (exoredis_parse_key_arg(&key, &args_len, &key_len) == 
          EXOREDIS_ARGS_MISSING) {
@@ -288,7 +311,7 @@ void exoredis_handle_setbit (unsigned char *key,
     printf("SETBIT Command: SETBIT %s (%d) \n", key, key_len);
     bitpos = key + key_len;
     if ((ret = exoredis_parse_bitoffset_arg(&bitpos, &args_len, &bo,
-                                            &bitpos_len) != EXOREDIS_OK)) {
+                                            &bitpos_len)) != EXOREDIS_OK) {
         if (ret == EXOREDIS_ARGS_MISSING) {
             exoredis_resp_error("wrong number of arguments for 'SETBIT' command");
         } else {
@@ -298,9 +321,9 @@ void exoredis_handle_setbit (unsigned char *key,
     }
 
     printf("SETBIT Command: SETBIT %s (%d) %u \n", key, key_len, bo);
-    bitchar = bitpos + bitpos_len;
-    if ((ret = exoredis_parse_bit_arg(&bitchar, &args_len, &bitset) !=
-        EXOREDIS_OK)) {
+    bitchar = bitpos;
+    if ((ret = exoredis_parse_bit_arg(&bitchar, &args_len, &bitset)) !=
+        EXOREDIS_OK) {
             if (ret == EXOREDIS_BO_ARGS_INVALID) {
                 exoredis_resp_error("bit offset is not a integer or out of range");
             } else {
@@ -310,6 +333,58 @@ void exoredis_handle_setbit (unsigned char *key,
     }
     printf("SETBIT Command: SETBIT %s (%d) %u %c \n", key, key_len, bo, bitset);
 
-    exoredis_resp_ok();
+    /* Set/Reset the bit at bitpos */
+
+    exoredis_set_reset_bitoffset(key, key_len, bo, bitset, &orig_val);
+
+    exoredis_resp_integer(orig_val);
     return;
 }
+
+void exoredis_handle_getbit (unsigned char *key,
+                             int args_len)
+{
+    unsigned int bo = 0;
+    int key_len = 0;
+    int bitpos_len = 0;
+    exoredis_return_codes ret;
+    unsigned char *bitpos;
+    unsigned char *value;
+    unsigned char orig_val;
+    int value_len;
+
+    if (exoredis_parse_key_arg(&key, &args_len, &key_len) == 
+         EXOREDIS_ARGS_MISSING) {
+        exoredis_resp_error("wrong number of arguments for 'SETBIT' command");
+        return;
+    }
+
+    printf("GETBIT Command: GETBIT %s (%d) \n", key, key_len);
+    bitpos = key + key_len;
+    if ((ret = exoredis_parse_bitoffset_arg(&bitpos, &args_len, &bo,
+                                            &bitpos_len)) != EXOREDIS_OK) {
+        if (ret == EXOREDIS_ARGS_MISSING) {
+            exoredis_resp_error("wrong number of arguments for 'GETBIT' command");
+        } else {
+            exoredis_resp_error("bit offset is not a integer or out of range");
+        }
+        return;
+    }
+
+    value = bitpos + bitpos_len;
+    if (exoredis_parse_value_arg(&value, &args_len, &value_len) ==
+        EXOREDIS_OK) {
+        /* Hmm we don't expect anything beyond the key */
+        exoredis_resp_error("wrong number of arguments for 'GETBIT' command");
+        return;
+    }
+    printf("GETBIT Command: GETBIT %s (%d) %u\n", key, key_len, bo);
+
+    /* Set/Reset the bit at bitpos */
+
+    exoredis_get_bitoffset(key, key_len, bo, &orig_val);
+    exoredis_resp_integer(orig_val);
+    return;
+}
+
+

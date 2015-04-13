@@ -74,6 +74,8 @@ unsigned int byte_test_integer = 0xabcdefff;
 #define BYTE_ORDER (byte_test_integer & 0x00000011 == 0x000000ff)? BIG_ENDIAN : LITTLE_ENDIAN
 #endif
 
+#define EXOREDIS_LITTLE_ENDIAN_BIT_POS(x) (7 - (x))
+
 typedef enum _exoredis_value_type {
     ENCODING_VALUE_TYPE_STRING,
     ENCODING_VALUE_TYPE_LIST,

@@ -99,10 +99,11 @@ void exoredis_process_request(unsigned char *buf,
         case EXOREDIS_CMD_SETBIT:
             printf("Arguments to command %s\n", buf);
             return exoredis_handle_setbit(buf, args_len);
-#if 0
+
         case EXOREDIS_CMD_GETBIT:
             printf("Arguments to command %s\n", buf);
             return exoredis_handle_getbit(buf, args_len);
+#if 0
 
 
         case EXOREDIS_CMD_ZADD:
