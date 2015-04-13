@@ -488,7 +488,7 @@ exoredis_set_reset_bitoffset (unsigned char *key,
     if (*orig_bitval != ( 0x1 & bitval)) {
         /* Flip the bit */
         mask = (*orig_bitval)? (~(*orig_bitval << bit_offset_le)): 
-               ((~(*orig_bitval)) << bit_offset_le);
+               ((~(*orig_bitval) & 0x1) << bit_offset_le);
         he_node->value[offset] = (*orig_bitval)? (mask & byte_val) : (mask | byte_val);
         printf("Modified byte value %d\n", he_node->value[offset]);
     }
