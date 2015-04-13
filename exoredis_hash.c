@@ -477,18 +477,20 @@ exoredis_set_reset_bitoffset (unsigned char *key,
     if (!he_node) {
         return EXOREDIS_ERR;
     }
-    byte_val = he_node->value[offset];
-
     bit_offset_le = EXOREDIS_LITTLE_ENDIAN_BIT_POS((bit_offset - (offset << 3)));
 
-    *orig_bitval = (byte_val >> bit_offset_le) & 1;
-    
+    byte_val = he_node->value[offset];
+
+    *orig_bitval = (byte_val >> bit_offset_le) & 0x1;
+
     printf("Original bit %d new bit %d\n", *orig_bitval, bitval);
-    printf("Original byte %d ",he_node->value[offset]);
+    printf("Original byte %d\n",he_node->value[offset]);
     if (*orig_bitval != ( 0x1 & bitval)) {
         /* Flip the bit */
-        mask = ~(~(*orig_bitval) << bit_offset_le);
+        mask = (*orig_bitval)? (~(*orig_bitval << bit_offset_le)): 
+               ((~(*orig_bitval)) << bit_offset_le);
         he_node->value[offset] = (*orig_bitval)? (mask & byte_val) : (mask | byte_val);
+        printf("Modified byte value %d\n", he_node->value[offset]);
     }
     printf("Dumping hash tree \n");
     exoredis_dump_ht(&ht);
@@ -512,8 +514,6 @@ exoredis_get_bitoffset (unsigned char *key,
     unsigned int offset = 0;
     *orig_bitval = 0;
     char byte_val, bit_offset_le;
-    unsigned int val_int;
-    char *ptr;
     
     ht_index = exoredis_hash_index(&ht, key, key_len);
     he_temp = ht->table[ht_index];
@@ -610,13 +610,11 @@ exoredis_get_bitoffset (unsigned char *key,
     if (!he_node) {
         return EXOREDIS_ERR;
     }
-    val_int = atoi((char *)(he_node->value));
-    ptr = (char *)(&val_int);
-    byte_val = ptr[offset];
-
     bit_offset_le = EXOREDIS_LITTLE_ENDIAN_BIT_POS((bit_offset - (offset << 3)));
 
-    *orig_bitval = (byte_val >> bit_offset_le) & 1;
+    byte_val = he_node->value[offset];
+
+    *orig_bitval = (byte_val >> bit_offset_le) & 0x1;
     printf("Dumping hash tree \n");
     exoredis_dump_ht(&ht);
     printf("Dumping new hash tree \n");

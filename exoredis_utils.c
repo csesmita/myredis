@@ -308,7 +308,6 @@ void exoredis_handle_setbit (unsigned char *key,
         return;
     }
 
-    printf("SETBIT Command: SETBIT %s (%d) \n", key, key_len);
     bitpos = key + key_len;
     if ((ret = exoredis_parse_bitoffset_arg(&bitpos, &args_len, &bo,
                                             &bitpos_len)) != EXOREDIS_OK) {
@@ -320,7 +319,6 @@ void exoredis_handle_setbit (unsigned char *key,
         return;
     }
 
-    printf("SETBIT Command: SETBIT %s (%d) %u \n", key, key_len, bo);
     bitchar = bitpos;
     if ((ret = exoredis_parse_bit_arg(&bitchar, &args_len, &bitset)) !=
         EXOREDIS_OK) {
@@ -331,7 +329,6 @@ void exoredis_handle_setbit (unsigned char *key,
             }
             return;
     }
-    printf("SETBIT Command: SETBIT %s (%d) %u %c \n", key, key_len, bo, bitset);
 
     /* Set/Reset the bit at bitpos */
 
@@ -359,7 +356,6 @@ void exoredis_handle_getbit (unsigned char *key,
         return;
     }
 
-    printf("GETBIT Command: GETBIT %s (%d) \n", key, key_len);
     bitpos = key + key_len;
     if ((ret = exoredis_parse_bitoffset_arg(&bitpos, &args_len, &bo,
                                             &bitpos_len)) != EXOREDIS_OK) {
@@ -378,7 +374,6 @@ void exoredis_handle_getbit (unsigned char *key,
         exoredis_resp_error("wrong number of arguments for 'GETBIT' command");
         return;
     }
-    printf("GETBIT Command: GETBIT %s (%d) %u\n", key, key_len, bo);
 
     /* Set/Reset the bit at bitpos */
 
