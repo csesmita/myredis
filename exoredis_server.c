@@ -103,26 +103,23 @@ void exoredis_process_request(unsigned char *buf,
         case EXOREDIS_CMD_GETBIT:
             printf("Arguments to command %s\n", buf);
             return exoredis_handle_getbit(buf, args_len);
-#if 0
-
 
         case EXOREDIS_CMD_ZADD:
             printf("Arguments to command %s\n", buf);
-            return exoredis_handle_zadd(buf);
+            return exoredis_handle_zadd(buf, args_len);
 
         case EXOREDIS_CMD_ZCOUNT:
             printf("Arguments to command %s\n", buf);
-            return exoredis_handle_zcount(buf);
+            return exoredis_handle_zcount(buf, args_len);
 
         case EXOREDIS_CMD_ZCARD:
             printf("Arguments to command %s\n", buf);
-            return exoredis_handle_zcard(buf);
+            return exoredis_handle_zcard(buf, args_len);
 
         case EXOREDIS_CMD_ZRANGE:
             printf("Arguments to command %s\n", buf);
-            return exoredis_handle_zrange(buf);
+            return exoredis_handle_zrange(buf, args_len);
 
-#endif
         case EXOREDIS_CMD_SAVE:
             if (command_len < read_len) {
                 printf("SAVE doesn't take arguments\n");

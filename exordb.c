@@ -161,7 +161,6 @@ exordb_encode_value (char **buf,
             }
             return EXOREDIS_OK;
 
-        case ENCODING_VALUE_TYPE_LIST:
         case ENCODING_VALUE_TYPE_SORTED_SET:
             if (size > EXOREDIS_RDB_14BITLEN_LIMIT) {
                 printf("size of list cannot exceed 16383 in count\n");
@@ -260,7 +259,6 @@ exordb_decode_value (char  *buf,
             }
             return EXOREDIS_OK;
 
-        case ENCODING_VALUE_TYPE_LIST:
         case ENCODING_VALUE_TYPE_SORTED_SET:
             /* Decode the size using LE */
             *data_type = ARRAY_DATA_TYPE;

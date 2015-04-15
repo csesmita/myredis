@@ -25,6 +25,7 @@
 #define EXOREDIS_SERVER_TCP_PORT 15000
 
 #define MAX_REQ_RESP_MSGLEN 1024
+#define MAX_REQ_RESP_INT_NUM (MAX_REQ_RESP_MSGLEN/sizeof(int))
 
 typedef enum exoredis_data_type
 {
@@ -43,6 +44,7 @@ typedef enum {
 
 typedef enum {
     ERROR_STRING_ERR,
+    ERROR_STRING_WRONGTYPE,
     ERROR_STRING_MAX,
 }exoredis_error_strings;
 

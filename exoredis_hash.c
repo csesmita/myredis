@@ -151,7 +151,8 @@ void
 exoredis_lookup_create_update_he (unsigned char *key, 
                                   int key_len,
                                   unsigned char *value,
-                                  int value_len)
+                                  int value_len,
+                                  exoredis_value_type type)
 {
     exoredis_hash_entry *he_temp = NULL;
     exoredis_hash_entry *he_prev = NULL;
@@ -183,6 +184,7 @@ exoredis_lookup_create_update_he (unsigned char *key,
             he_temp->key_len = key_len;
             he_temp->value_len = value_len;
             he_temp->next = he_next;
+            he_temp->type = type;
 
             if (he_prev) {
                 he_temp->next = he_prev->next;
@@ -216,6 +218,7 @@ exoredis_lookup_create_update_he (unsigned char *key,
             he_temp->key_len = key_len;
             he_temp->value_len = value_len;
             he_temp->next = he_next;
+            he_temp->type = type;
 
             if (he_prev) {
                 he_temp->next = he_prev->next;
@@ -233,6 +236,7 @@ exoredis_lookup_create_update_he (unsigned char *key,
             memcpy(he_temp->value, value, value_len);
             he_temp->key_len = key_len;
             he_temp->value_len = value_len;
+            he_temp->type = type;
 
             if (he_prev) {
                 he_temp->next = he_prev->next;
@@ -252,7 +256,8 @@ void *
 exoredis_read_he (unsigned char *key,
                   int key_len,
                   unsigned char **value,
-                  int *value_len)
+                  int *value_len,
+                  exoredis_value_type *type)
 {
     exoredis_hash_entry *he_temp = NULL;
     int ht_index = 0;
@@ -272,6 +277,7 @@ exoredis_read_he (unsigned char *key,
         *value = (unsigned char *)malloc(he_temp->value_len);
         memcpy(*value, he_temp->value, he_temp->value_len);
         *value_len = he_temp->value_len;
+        *type = he_temp->type;
         return he_temp;
     }
 
@@ -291,6 +297,7 @@ exoredis_read_he (unsigned char *key,
         *value = (unsigned char *)malloc(he_temp->value_len);
         memcpy(*value, he_temp->value, he_temp->value_len);
         *value_len = he_temp->value_len;
+        *type = he_temp->type;
         return he_temp;
     }
 
@@ -370,7 +377,7 @@ exoredis_init_ht (void)
 exoredis_return_codes
 exoredis_set_reset_bitoffset (unsigned char *key,
                               int key_len,
-                              unsigned int bit_offset,
+                              int bit_offset,
                               int bitval,
                               unsigned char *orig_bitval)
 {
@@ -409,6 +416,7 @@ exoredis_set_reset_bitoffset (unsigned char *key,
             he_node->next = he_temp->next;
             he_node->key_len = he_temp->key_len;
             he_node->value_len = he_temp->value_len;
+            he_node->type = ENCODING_VALUE_TYPE_STRING;
 
             if (he_prev) {
                 he_node->next = he_prev->next;
@@ -445,6 +453,7 @@ exoredis_set_reset_bitoffset (unsigned char *key,
                 he_node->next = he_temp->next;
                 he_node->key_len = he_temp->key_len;
                 he_node->value_len = he_temp->value_len;
+                he_node->type = ENCODING_VALUE_TYPE_STRING;
 
                 if (he_prev) {
                     he_node->next = he_prev->next;
@@ -464,6 +473,7 @@ exoredis_set_reset_bitoffset (unsigned char *key,
             memcpy(he_node->key, key, key_len);
             he_node->key_len = key_len;
             he_node->value_len = offset + 1;
+            he_node->type = ENCODING_VALUE_TYPE_STRING;
 
             if (he_prev) {
                 he_node->next = he_prev->next;
@@ -504,7 +514,7 @@ exoredis_set_reset_bitoffset (unsigned char *key,
 exoredis_return_codes
 exoredis_get_bitoffset (unsigned char *key,
                         int key_len,
-                        unsigned int bit_offset,
+                        int bit_offset,
                         unsigned char *orig_bitval)
 {
     exoredis_hash_entry *he_temp = NULL;
@@ -530,6 +540,9 @@ exoredis_get_bitoffset (unsigned char *key,
     }
 
     if (he_temp) {
+        if (he_temp->type != ENCODING_VALUE_TYPE_STRING) {
+            return EXOREDIS_WRONGTYPE;
+        }
         /* Node exists. Update the value */
         if (offset < he_temp->value_len) {
             he_node = he_temp;
@@ -542,6 +555,7 @@ exoredis_get_bitoffset (unsigned char *key,
             he_node->next = he_temp->next;
             he_node->key_len = he_temp->key_len;
             he_node->value_len = he_temp->value_len;
+            he_node->type = ENCODING_VALUE_TYPE_STRING;
 
             if (he_prev) {
                 he_node->next = he_prev->next;
@@ -566,6 +580,9 @@ exoredis_get_bitoffset (unsigned char *key,
         }
 
         if (he_temp) {
+            if (he_temp->type != ENCODING_VALUE_TYPE_STRING) {
+                return EXOREDIS_WRONGTYPE;
+            }
             /* Node exists. Update the value */
             if (offset < he_temp->value_len) {
                 he_node = he_temp;
@@ -578,6 +595,7 @@ exoredis_get_bitoffset (unsigned char *key,
                 he_node->next = he_temp->next;
                 he_node->key_len = he_temp->key_len;
                 he_node->value_len = he_temp->value_len;
+                he_node->type = ENCODING_VALUE_TYPE_STRING;
 
                 if (he_prev) {
                     he_node->next = he_prev->next;
@@ -597,6 +615,7 @@ exoredis_get_bitoffset (unsigned char *key,
             memcpy(he_node->key, key, key_len);
             he_node->key_len = key_len;
             he_node->value_len = offset + 1;
+            he_node->type = ENCODING_VALUE_TYPE_STRING;
 
             if (he_prev) {
                 he_node->next = he_prev->next;
@@ -624,6 +643,159 @@ exoredis_get_bitoffset (unsigned char *key,
 
 }
 
+exoredis_return_codes
+exoredis_form_ss_value (int *score,
+                        unsigned char **value,
+                        int *value_len,
+                        int num,
+                        unsigned char **ss_value,
+                        unsigned int *ss_value_len)
+{
+    int i = 0;
+    exoredis_hash_entry *he_node = NULL;
+    ss_entry *exist_val = NULL, *temp = NULL, *new_ss_entry = NULL;
+    ss_entry *prev_ss_entry = NULL;
+    ss_val_list *exist_val_list = NULL, *temp_val_list = NULL;
+    ss_val_list *new_val_list = NULL, *prev_val_list = NULL;
+    char scorematch;
+
+    /* Lookup if this an existing key */
+    he_node = exoredis_read_he(key, key_len);
+
+    if (he_node) {
+        exist_val = (ss_entry *)he_node->value;
+        i = 0;
+        for (i = 0; i < num; i++) {
+            /* Each (value, value...) is an ss_val_list */
+            /* Each (score, card, value...) is an ss_entry */
+            /* Check if score exists */
+            scorematch = 0;
+            temp = exist_val;
+            new_ss_entry = NULL;
+            while(temp && (score[i] <= temp->score)) {
+                if (score[i] == temp->score) {
+                    /* Score match found */
+                    scorematch = 1;
+                    break;
+                }
+                temp = temp->next;
+            }
+            if (!scorematch) {
+                /* No score match in all of exist_val; 
+                 * insert a new ss_entry 
+                 */
+                new_ss_entry = (ss_entry *)malloc(sizeof(ss_entry));
+                new_ss_entry->card = 0;
+                new_ss_entry->score = score[i];
+                new_ss_entry->start_value = NULL;
+                new_ss_entry->next = NULL;
+            }
+            
+            /* At this point we have either a score match, or a new score block
+             * of ss_entry. For the second case, either the position is given 
+             * just before temp (if temp is NOT NULL), or at the start/end of
+             * he_node->value
+             */
+            
+            if (scorematch){
+                /* Check if value already exists in ss_val_list */
+                temp_val_list = temp->start_value;
+                new_val_list = NULL;
+                prev_val_list = NULL;
+                while(temp_val_list && ((cmp = memcmp(temp_val_list->ss_value,
+                                        value[i], value_len[i])) <= 0)) {
+                    if (cmp == 0) {
+                        /* Value match found */
+                        break;
+                    }
+                    prev_val_list = temp_val_list;
+                    temp_val_list = temp_val_list->next;
+                }
+
+                if (cmp == 0) {
+                    /* Nothing to do for this iteration of i */
+                    continue;
+                }
+
+                /* Value match not found. Create a new ss_val_list and insert*/
+                new_val_list = (ss_val_list *) malloc (sizeof(ss_val_list) 
+                                                       + value_len[i]);
+                new_val_list->ss_value_len = value_len[i];
+                new_val_list->ss_next = NULL;
+                memcpy(new_val_list->ss_value, value[i], value_len[i]);
+
+                /* Increase the cardinality */
+                temp->card++;
+
+                /* Insert new_val_list into the correct position in list */
+                if (temp_val_list) {
+                    if(prev_val_list) {
+                        /* Middle of the list */
+                        prev_val_list->ss_next = new_val_list;
+                        new_val_list->ss_next = temp_val_list;
+                    } else {
+                        /* First in list */
+                        temp->start_value = new_val_list;
+                        new_val_list->ss_next = temp_val_list;
+                    }
+                } else {
+                    if (prev_val_list) {
+                        /* Last in list */
+                        prev_val_list->ss_next = new_val_list;
+                        new_val_list->ss_next = NULL;
+                    } else {
+                        /* Non-existant list */
+                        temp->start_value = new_val_list;
+                    }
+                }
+            } else {
+                /* No score matches */
+            }
+        } /* close i loop */
+    } else {
+        /* he_node: No such key in hash. Insert new (key, value) pair */
+    }
+
+    return EXOREDIS_OK;
+}
+
+exoredis_return_codes
+exoredis_add_sortedset (unsigned char *key,
+                        int key_len,
+                        int *score,
+                        unsigned char **value,
+                        int *value_len,
+                        int num)
+{
+    int i = 0;
+    char temp_str[100];
+    int len = 0;
+    unsigned char * ss_value = NULL;
+    unsigned int ss_value_len;
+
+    printf("ZADD %s (%d) ", key, key_len);
+    while (i < num) {
+        memcpy(temp_str, value[i], value_len[i]);
+        len = value_len[i];
+        temp_str[len] = '\0';
+        printf("%d %s ", score[i], temp_str);
+        i++;
+    }
+
+    /* Form sorted set value */
+    ret = exoredis_form_ss_value(score, value, value_len, num,
+                                 &ss_value, &ss_value_len);
+
+    if (ret != EXOREDIS_OK) {
+        return ret;
+    }
+
+    /* Add to hash */
+    exoredis_lookup_create_update_he(key, key_len, ss_value, ss_value_len,
+                                     ENCODING_TYPE_SORTED_SET);
+
+    return EXOREDIS_OK;
+}
 
 #ifdef HASH_TEST_MODE
 

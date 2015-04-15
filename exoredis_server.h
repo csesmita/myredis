@@ -7,27 +7,16 @@
 #define EXOREDIS_SERVER_H
 
 void exoredis_handle_get(unsigned char *arg, int len);
-
 void exoredis_handle_set(unsigned char *arg, int len);
 
 void exoredis_handle_getbit(unsigned char *arg, int len);
-
 void exoredis_handle_setbit(unsigned char *arg, int len);
 
-#if 0
- void exoredis_handle_get(int fd, struct sockaddr *client_addr, FILE *fp,
-                          char *arg);
+void exoredis_handle_zadd (unsigned char *arg, int len);
+void exoredis_handle_zrange (unsigned char *arg, int len);
+void exoredis_handle_zcount (unsigned char *arg, int len);
+void exoredis_handle_zcard (unsigned char *arg, int len);
 
- void exoredis_handle_get(int fd, struct sockaddr *client_addr, FILE *fp,
-                          char *arg);
-
- void exoredis_handle_get(int fd, struct sockaddr *client_addr, FILE *fp,
-                          char *arg);
-
- void exoredis_handle_get(int fd, struct sockaddr *client_addr, FILE *fp,
-                          char *arg);
-
-#endif
 void exoredis_handle_save (void);
 
 #endif

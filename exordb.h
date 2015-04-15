@@ -78,7 +78,6 @@ unsigned int byte_test_integer = 0xabcdefff;
 
 typedef enum _exoredis_value_type {
     ENCODING_VALUE_TYPE_STRING,
-    ENCODING_VALUE_TYPE_LIST,
     ENCODING_VALUE_TYPE_SORTED_SET,
     ENCODING_VALUE_TYPE_MAX,
 }exoredis_value_type;
@@ -113,12 +112,11 @@ typedef enum _exoredis_value_type {
  *                  00/01 for Simple, Bulk, Error
  *                  11 for Integers
  *
- * List Encoding(type ENCODING_VALUE_TYPE_LIST): 
+ * Sorted Set(type ENCODING_VALUE_TYPE_SORTED_SET):
  * Number of elements, size, from length encoding like in strings
  * For number of strings in len, string interpretation
  *
- * Sorted Set(type ENCODING_VALUE_TYPE_SORTED_SET):
- * Like in List encoding, only for each element, encoding is:
+ * For each element, encoding is:
  * len | value | len | score
  *
  */
@@ -131,6 +129,7 @@ typedef enum {
     EXOREDIS_ERR,
     EXOREDIS_ARGS_MISSING,
     EXOREDIS_BO_ARGS_INVALID,
+    EXOREDIS_WRONGTYPE,
 } exoredis_return_codes;
 
 struct _exoredis_io {
