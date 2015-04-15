@@ -416,6 +416,7 @@ void exoredis_handle_zadd (unsigned char *key,
     unsigned char *value[MAX_REQ_RESP_INT_NUM];
     int value_len[MAX_REQ_RESP_INT_NUM];
     int i = 0;
+    unsigned int added = 0;
 
     if (exoredis_parse_key_arg(&key, &args_len, &key_len) == 
         EXOREDIS_ARGS_MISSING) {
@@ -451,7 +452,9 @@ void exoredis_handle_zadd (unsigned char *key,
         i++;
     }
 
-    ret = exoredis_add_sortedset(key, key_len, score, value, value_len, i);
+    ret = exoredis_add_sortedset(key, key_len, score, value, value_len, i,
+                                 &added);
+    exoredis_resp_integer(added);
     return;
 
 }

@@ -73,7 +73,7 @@ void
 exoredis_destroy_he (unsigned char *key,
                      int key_len);
 
-void
+exoredis_hash_entry *
 exoredis_lookup_create_update_he (unsigned char * key, 
                            int key_len,
                            unsigned char * value,
@@ -112,5 +112,6 @@ exoredis_add_sortedset (unsigned char *key,
                         int *score,
                         unsigned char **value,
                         int *value_len,
-                        int num);
+                        int num,
+                        unsigned int *added);
 #endif
