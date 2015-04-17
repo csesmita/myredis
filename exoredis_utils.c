@@ -67,11 +67,12 @@ void exoredis_resp_ok(void)
 
 void exoredis_resp_integer (int val)
 {
-    char buf[MAX_REQ_RESP_MSGLEN];
-    char *ptr = buf;
+    unsigned char buf[MAX_REQ_RESP_MSGLEN] = "\0";
     int buf_len = 0;
 
-    memset(ptr, 0, MAX_REQ_RESP_MSGLEN);
+    memset(buf, 0, MAX_REQ_RESP_MSGLEN);
+    unsigned char *ptr = buf;
+
     /* OK  to use string operations since these are always simple strings */
     *ptr++ = prefix_string[INTEGER_DATA_TYPE];
     buf_len++;
@@ -88,29 +89,62 @@ void exoredis_resp_integer (int val)
 }
 
 void exoredis_resp_bulk_string (unsigned char *msg,
-                                int len)
+                                int len,
+                                unsigned char to_send,
+                                unsigned char **buf,
+                                int *buf_len)
 {
-    unsigned char buf[MAX_REQ_RESP_MSGLEN] = "\0";
-    unsigned char *ptr = buf;
-
-    int buf_len = 0;
+    unsigned char *ptr = *buf;
 
     /* OK to use string operations since these are always simple strings */
     *ptr++ = prefix_string[BULK_STRING_DATA_TYPE];
-    buf_len++;
+    (*buf_len)++;
     sprintf((char *)ptr, "%d", len);
     ptr += sizeof(len);
-    buf_len += sizeof(len);
+    (*buf_len) += sizeof(len);
+    memcpy(ptr, trail_string, TRAIL_STRING_LEN);
+    ptr += TRAIL_STRING_LEN;
+    (*buf_len) += TRAIL_STRING_LEN;
+    memcpy(ptr, msg, len);
+    ptr += len;
+    (*buf_len) += len;
+    memcpy(ptr, trail_string, TRAIL_STRING_LEN);
+    ptr += TRAIL_STRING_LEN;
+    (*buf_len) += TRAIL_STRING_LEN;
+    if (to_send)
+        send(exoredis_io.fd, *buf, *buf_len, MSG_DONTWAIT);
+}
+
+void exoredis_resp_array (unsigned char *msg,
+                          int len,
+                          int size,
+                          unsigned char to_send)
+{
+    unsigned char buf[MAX_REQ_RESP_MSGLEN] = "\0";
+    unsigned char *ptr = buf;
+    int buf_len = 0;
+
+    memset(buf, 0, MAX_REQ_RESP_MSGLEN);
+
+    *ptr++ = prefix_string[ARRAY_DATA_TYPE];
+    buf_len++;
+    sprintf((char *)ptr, "%d", size);
+    ptr += sizeof(size);
+    buf_len += sizeof(size);
     memcpy(ptr, trail_string, TRAIL_STRING_LEN);
     ptr += TRAIL_STRING_LEN;
     buf_len += TRAIL_STRING_LEN;
+
     memcpy(ptr, msg, len);
     ptr += len;
     buf_len += len;
     memcpy(ptr, trail_string, TRAIL_STRING_LEN);
     ptr += TRAIL_STRING_LEN;
     buf_len += TRAIL_STRING_LEN;
-    send(exoredis_io.fd, buf, buf_len, MSG_DONTWAIT);
+
+    if (to_send)
+        send(exoredis_io.fd, buf, buf_len, MSG_DONTWAIT);
+
 }
 
 exoredis_return_codes
@@ -261,6 +295,11 @@ void exoredis_handle_get (unsigned char *key,
     int value_len = 0;
     unsigned char *value = NULL;
     exoredis_value_type type;
+    unsigned char buf[MAX_REQ_RESP_MSGLEN] = "\0";
+    int buf_len = 0;
+    unsigned char *ptr = buf;
+
+    memset(buf, 0, MAX_REQ_RESP_MSGLEN);
 
     if (exoredis_parse_key_arg(&key, &args_len, &key_len) == 
         EXOREDIS_ARGS_MISSING) {
@@ -284,7 +323,7 @@ void exoredis_handle_get (unsigned char *key,
     exoredis_read_he(key, key_len, &value, &value_len, &type);
     
     /* Send Bulk String */
-    exoredis_resp_bulk_string(value, value_len);
+    exoredis_resp_bulk_string(value, value_len, 1, &ptr, &buf_len);
 
     /* Deallocate memory */
     free(value);
@@ -467,6 +506,7 @@ void exoredis_handle_zcount (unsigned char *key,
     exoredis_return_codes ret;
     unsigned char *minpos;
     unsigned char *maxpos;
+    int count = 0;
 
     if (exoredis_parse_key_arg(&key, &args_len, &key_len) == 
          EXOREDIS_ARGS_MISSING) {
@@ -501,7 +541,8 @@ void exoredis_handle_zcount (unsigned char *key,
         return;
     }
 
-    //ret = exoredis_count_sortedset(key, key_len, score, min, max);
+    ret = exoredis_count_sortedset(key, key_len, min, max, &count);
+    exoredis_resp_integer(count);
     return;
 }
 
@@ -516,6 +557,12 @@ void exoredis_handle_zrange (unsigned char *key,
     unsigned char withscore = 0;
     unsigned char *value;
     int value_len;
+    unsigned char buf[MAX_REQ_RESP_MSGLEN];
+    unsigned char *ptr = buf;
+    int buf_len = 0;
+    int size = 0;
+
+    memset(ptr, 0, MAX_REQ_RESP_MSGLEN);
 
     if (exoredis_parse_key_arg(&key, &args_len, &key_len) == 
          EXOREDIS_ARGS_MISSING) {
@@ -562,8 +609,9 @@ void exoredis_handle_zrange (unsigned char *key,
         }
     }
 
-   
-    //ret = exoredis_range_sortedset(key, key_len, score, min, max, withscore);
+    ret = exoredis_range_sortedset(key, key_len, min, max, withscore,
+                                   &ptr, &buf_len, &size);
+    exoredis_resp_array(buf,buf_len, size, 1);
     return;
 
 }
@@ -571,10 +619,8 @@ void exoredis_handle_zrange (unsigned char *key,
 void exoredis_handle_zcard (unsigned char *key,
                             int args_len)
 {
-    int score;
+    int card;
     int key_len = 0;
-    exoredis_return_codes ret;
-    unsigned char *scorepos;
     unsigned char *value;
     int value_len;
 
@@ -585,20 +631,7 @@ void exoredis_handle_zcard (unsigned char *key,
         return;
     }
 
-    scorepos = key + key_len;
-    if ((ret = exoredis_parse_int_arg(&scorepos, &args_len, &score)) !=
-        EXOREDIS_OK) {
-        if (ret == EXOREDIS_ARGS_MISSING) {
-            exoredis_resp_error("wrong number of arguments for 'ZCARD' command",
-                                ERROR_STRING_ERR);
-        } else if (ret ==  EXOREDIS_BO_ARGS_INVALID) {
-            exoredis_resp_error("value is not a valid integer",
-                                ERROR_STRING_ERR);
-        }
-        return;
-    }
-
-    value = scorepos; 
+    value = key + key_len;
     if (exoredis_parse_value_arg(&value, &args_len, &value_len) !=
         EXOREDIS_ARGS_MISSING) {
         exoredis_resp_error("wrong number of arguments for 'ZCARD' command",
@@ -606,7 +639,7 @@ void exoredis_handle_zcard (unsigned char *key,
         return;
     }
 
-    //ret = exoredis_card_sortedset(key, key_len, score);
-    return;
+    exoredis_card_sortedset(key, key_len, &card);
+    exoredis_resp_integer(card);
 }
 

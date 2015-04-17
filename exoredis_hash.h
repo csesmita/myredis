@@ -2,7 +2,8 @@
 #define EXOREDIS_HASH_H_
 #include "exordb.h"
 
-
+#define TRUE 1
+#define FALSE 0
 /* To make the hashes work fast, adopt static length for buffers */
 #define EXOREDIS_HASH_KEY_LEN 100
 
@@ -14,6 +15,7 @@ struct _exoredis_hash_entry {
     /* To make it fast, have static key strings */
     unsigned char key[EXOREDIS_HASH_KEY_LEN];
     int  key_len;
+    unsigned char dirty;
     int  value_len;
     unsigned char value[0];
 };
@@ -114,4 +116,24 @@ exoredis_add_sortedset (unsigned char *key,
                         int *value_len,
                         int num,
                         unsigned int *added);
+
+exoredis_return_codes
+exoredis_card_sortedset (unsigned char *key,
+                         int key_len,
+                         int *card);
+
+
+exoredis_return_codes
+exoredis_count_sortedset (unsigned char *key,
+                          int key_len,
+                          int min,
+                          int max,
+                          int *count);
+
+
+exoredis_return_codes
+exoredis_range_sortedset (unsigned char *key, int key_len,
+                          int min, int max,
+                          unsigned char withscore,
+                          unsigned char **buf, int *buf_len, int *size);
 #endif

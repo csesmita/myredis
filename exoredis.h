@@ -62,4 +62,11 @@ typedef enum supported_cmds
     EXOREDIS_CMD_SAVE,
     EXOREDIS_CMD_MAX
 }exoredis_supported_cmds;
+
+
+void exoredis_resp_bulk_string (unsigned char *msg,
+                                int len,
+                                unsigned char to_send,
+                                unsigned char **buf,
+                                int *buf_len);
 #endif
