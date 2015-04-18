@@ -71,13 +71,16 @@
 #if !defined(BYTE_ORDER) || \
     (BYTE_ORDER != BIG_ENDIAN && BYTE_ORDER != LITTLE_ENDIAN)
 unsigned int byte_test_integer = 0xabcdefff;
-#define BYTE_ORDER (byte_test_integer & 0x00000011 == 0x000000ff)? BIG_ENDIAN : LITTLE_ENDIAN
+#define BYTE_ORDER (byte_test_integer & 0x00000011 == 0x000000ff)? \
+                    BIG_ENDIAN : LITTLE_ENDIAN
 #endif
 
 #define EXOREDIS_LITTLE_ENDIAN_BIT_POS(x) (7 - (x))
 
 typedef enum _exoredis_value_type {
     ENCODING_VALUE_TYPE_STRING,
+    ENCODING_VALUE_TYPE_STRING_SEC_EX,
+    ENCODING_VALUE_TYPE_STRING_MSEC_EX,
     ENCODING_VALUE_TYPE_SORTED_SET,
     ENCODING_VALUE_TYPE_MAX,
 }exoredis_value_type;
@@ -132,10 +135,11 @@ typedef enum {
     EXOREDIS_WRONGTYPE,
 } exoredis_return_codes;
 
+#define PATH_MAX 512
 struct _exoredis_io {
     /* DB file pointer */
     FILE *dbfp;
-
+    char filePath[PATH_MAX];
     /* Write to/read from client socket */
     int fd;
 };

@@ -5,7 +5,11 @@
 #define TRUE 1
 #define FALSE 0
 /* To make the hashes work fast, adopt static length for buffers */
-#define EXOREDIS_HASH_KEY_LEN 100
+#define EXOREDIS_HASH_KEY_LEN 128
+
+#define EXPIRY_NONE 0
+#define SECONDS_EXPIRY 1
+#define MILLISECONDS_EXPIRY 2
 
 struct _exoredis_hash_entry {
     struct _exoredis_hash_entry *next;
@@ -15,7 +19,7 @@ struct _exoredis_hash_entry {
     /* To make it fast, have static key strings */
     unsigned char key[EXOREDIS_HASH_KEY_LEN];
     int  key_len;
-    unsigned char dirty;
+    int expires_value;
     int  value_len;
     unsigned char value[0];
 };
@@ -135,5 +139,6 @@ exoredis_return_codes
 exoredis_range_sortedset (unsigned char *key, int key_len,
                           int min, int max,
                           unsigned char withscore,
-                          unsigned char **buf, int *buf_len, int *size);
+                          unsigned char **buf, int *buf_len, int *size,
+                          char save_format);
 #endif

@@ -7,6 +7,7 @@
 #include "exoredis_server.h"
 #include "exordb.h"
 #include "exoredis_hash.h"
+
 /*
  * exoredis_str_to_cmd:
  * Interpretes incoming request to figure out the command
@@ -195,13 +196,14 @@ int main(int argc, char *argv[])
         return(-1);
     }
 
-    if((fp = fopen(argv[1], "ab+")) == NULL) {
+    if((fp = fopen(argv[1], "rb")) == NULL) {
         printf("Error opening DB file\n");
         return(-1);
     }
 
     exoredis_io_init();
     exoredis_io.dbfp = fp;
+    strncpy(exoredis_io.filePath, argv[1], strlen(argv[1]));
 
     if((listen_sock = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
         printf("Server socket problem\n");
@@ -254,6 +256,7 @@ int main(int argc, char *argv[])
             exit(0);
         } else {
             /* Parent */
+            fclose(fp);
             close(new_fd);
         }
     }

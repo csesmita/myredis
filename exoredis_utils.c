@@ -113,6 +113,7 @@ void exoredis_resp_bulk_string (unsigned char *msg,
     (*buf_len) += TRAIL_STRING_LEN;
     if (to_send)
         send(exoredis_io.fd, *buf, *buf_len, MSG_DONTWAIT);
+    *buf = ptr;
 }
 
 void exoredis_resp_array (unsigned char *msg,
@@ -338,7 +339,7 @@ void exoredis_handle_save (void)
     /* Dump the contents of the hash table into the DB File */
     exoredis_feed_ht_to_io();
 
-    /* For all other entries that exist, look for duplicates and delete */
+    exoredis_resp_ok();
     
     return;
 }
@@ -610,7 +611,7 @@ void exoredis_handle_zrange (unsigned char *key,
     }
 
     ret = exoredis_range_sortedset(key, key_len, min, max, withscore,
-                                   &ptr, &buf_len, &size);
+                                   &ptr, &buf_len, &size, FALSE);
     exoredis_resp_array(buf,buf_len, size, 1);
     return;
 
