@@ -19,7 +19,7 @@ struct _exoredis_hash_entry {
     /* To make it fast, have static key strings */
     unsigned char key[EXOREDIS_HASH_KEY_LEN];
     int  key_len;
-    int expires_value;
+    int expires_value[2];
     int  value_len;
     unsigned char value[0];
 };
@@ -55,11 +55,9 @@ typedef struct _sorted_list_entry ss_entry;
 #define EXOREDIS_HASH_TABLE_SIZE 200
 //#define HASH_TEST_MODE
 
-void
-exoredis_feed_ht_to_io();
+exoredis_return_codes exoredis_feed_ht_to_io();
 
-void
-exoredis_feed_io_to_ht();
+exoredis_return_codes exoredis_feed_io_to_ht();
 
 void
 exoredis_init_ht ();
@@ -84,6 +82,8 @@ exoredis_lookup_create_update_he (unsigned char * key,
                            int key_len,
                            unsigned char * value,
                            int value_len,
+                           int flags,
+                           int * expires,
                            exoredis_value_type type);
 void *
 exoredis_read_he (unsigned char *key,
@@ -141,4 +141,7 @@ exoredis_range_sortedset (unsigned char *key, int key_len,
                           unsigned char withscore,
                           unsigned char **buf, int *buf_len, int *size,
                           char save_format);
+
+int
+exoredis_string_type_mismatch (exoredis_value_type type);
 #endif

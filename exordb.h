@@ -80,11 +80,20 @@ unsigned int byte_test_integer = 0xabcdefff;
 typedef enum _exoredis_value_type {
     ENCODING_VALUE_TYPE_STRING,
     ENCODING_VALUE_TYPE_STRING_SEC_EX,
-    ENCODING_VALUE_TYPE_STRING_MSEC_EX,
+    ENCODING_VALUE_TYPE_STRING_SEC_PX,
+    ENCODING_VALUE_TYPE_STRING_SEC_EX_PX,
     ENCODING_VALUE_TYPE_SORTED_SET,
     ENCODING_VALUE_TYPE_MAX,
 }exoredis_value_type;
 
+typedef enum _set_options {
+    OPTION_EX = 1,
+    OPTION_PX,
+    OPTION_EX_PX,
+    OPTION_NX,
+    OPTION_XX,
+    OPTION_MAX,
+}exoredis_set_options;
 
 /* Similar to .rdb definition, this field specifies the length of the length 
  * field. The most significant two bits of the first byte of length specifies
@@ -137,8 +146,6 @@ typedef enum {
 
 #define PATH_MAX 512
 struct _exoredis_io {
-    /* DB file pointer */
-    FILE *dbfp;
     char filePath[PATH_MAX];
     /* Write to/read from client socket */
     int fd;

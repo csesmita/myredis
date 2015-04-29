@@ -7,6 +7,19 @@
 #include "exoredis_server.h"
 #include "exordb.h"
 #include "exoredis_hash.h"
+#include <signal.h>
+
+void exoredis_handle_signal (int signo)
+{
+    switch (signo) {
+        case SIGINT:
+            /* Save the hash tree */
+            exoredis_feed_ht_to_io();
+            break;
+        default:
+            break;
+    }
+}
 
 /*
  * exoredis_str_to_cmd:
@@ -15,39 +28,39 @@
 exoredis_supported_cmds exoredis_str_to_cmd(char *cmd,
                                             int command_len)
 {
-    if (!memcmp(cmd, "GET", command_len)) {
+    if (!strncasecmp(cmd, "GET", command_len)) {
         return EXOREDIS_CMD_GET;
     }
     
-    if (!memcmp(cmd, "SET", command_len)) {
+    if (!strncasecmp(cmd, "SET", command_len)) {
         return EXOREDIS_CMD_SET;
     }
     
-    if (!memcmp(cmd, "GETBIT", command_len)) {
+    if (!strncasecmp(cmd, "GETBIT", command_len)) {
         return EXOREDIS_CMD_GETBIT;
     }
 
-    if (!memcmp(cmd, "SETBIT", command_len)) {
+    if (!strncasecmp(cmd, "SETBIT", command_len)) {
         return EXOREDIS_CMD_SETBIT;
     }
 
-    if (!memcmp(cmd, "ZADD", command_len)) {
+    if (!strncasecmp(cmd, "ZADD", command_len)) {
         return EXOREDIS_CMD_ZADD;
     }
 
-    if (!memcmp(cmd, "ZCOUNT", command_len)) {
+    if (!strncasecmp(cmd, "ZCOUNT", command_len)) {
         return EXOREDIS_CMD_ZCOUNT;
     }
 
-    if (!memcmp(cmd, "ZCARD", command_len)) {
+    if (!strncasecmp(cmd, "ZCARD", command_len)) {
         return EXOREDIS_CMD_ZCARD;
     }
 
-    if (!memcmp(cmd, "ZRANGE", command_len)) {
+    if (!strncasecmp(cmd, "ZRANGE", command_len)) {
         return EXOREDIS_CMD_ZRANGE;
     }
 
-    if (!memcmp(cmd, "SAVE", command_len)) {
+    if (!strncasecmp(cmd, "SAVE", command_len)) {
         return EXOREDIS_CMD_SAVE;
     }
 
@@ -145,9 +158,6 @@ void exoredis_handle_client_req(void)
     int fd = exoredis_io.fd;
     int read_len = 0;
 
-    /* Initialize hash trees */
-    exoredis_init_ht();
-
     while (1) {
         memset(buf, 0, MAX_REQ_RESP_MSGLEN + 1);
 
@@ -173,11 +183,23 @@ void exoredis_handle_client_req(void)
     }
 }
 
-void
-exoredis_io_init (void)
+int
+exoredis_io_init (char *argv)
 {
-   exoredis_io.fd = -1;
-   exoredis_io.dbfp = NULL;
+    exoredis_io.fd = -1;
+
+    /* Initialize hash trees */
+    exoredis_init_ht();
+
+    /* Load the file in our HT */
+    strncpy(exoredis_io.filePath, argv, strlen(argv));
+    exoredis_io.filePath[strlen(argv)] = '\0';
+    if (exoredis_feed_io_to_ht() == EXOREDIS_ERR) {
+        printf("Can't open config file '%s'\n", argv);
+        return -1;
+    }
+
+    return 0;
 }
 
 int main(int argc, char *argv[])
@@ -187,7 +209,6 @@ int main(int argc, char *argv[])
     struct sockaddr_in server_addr;
     struct sockaddr client_addr;
     char addr_str[INET_ADDRSTRLEN] = "\0";
-    FILE *fp = NULL;
 
 
     /* Take in the programme and filename */
@@ -195,15 +216,6 @@ int main(int argc, char *argv[])
         printf("Please invoke exoredis_server with DB filename only\n");
         return(-1);
     }
-
-    if((fp = fopen(argv[1], "rb")) == NULL) {
-        printf("Error opening DB file\n");
-        return(-1);
-    }
-
-    exoredis_io_init();
-    exoredis_io.dbfp = fp;
-    strncpy(exoredis_io.filePath, argv[1], strlen(argv[1]));
 
     if((listen_sock = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
         printf("Server socket problem\n");
@@ -226,10 +238,7 @@ int main(int argc, char *argv[])
     printf("Server waiting for client requests on port %d\n",
            EXOREDIS_SERVER_TCP_PORT);
 
-    /* Just before heading over to clients, load the DB file into hash table */
-    //exoredis_feed_io_to_ht();
-
-    /* Now wait infinitely for client to send requests */
+   /* Now wait infinitely for client to send requests */
     while(1) {
         sin_size = sizeof(client_addr);
         new_fd = accept(listen_sock, (struct sockaddr *)&client_addr, &sin_size);
@@ -247,6 +256,13 @@ int main(int argc, char *argv[])
         /* Fork a child process to take care of this request */
         if (fork() == 0) {
             close(listen_sock);
+            /* Register signal handler */
+            signal(SIGINT, exoredis_handle_signal);
+
+            if (exoredis_io_init(argv[1]) < 0 ) {
+                return(-1);
+            }
+
             /* EXOREDIS PROTOCOL HANDLING */
             /* Handle incoming requests from this client */
 
@@ -256,7 +272,6 @@ int main(int argc, char *argv[])
             exit(0);
         } else {
             /* Parent */
-            fclose(fp);
             close(new_fd);
         }
     }

@@ -69,6 +69,7 @@ void exoredis_resp_integer (int val)
 {
     unsigned char buf[MAX_REQ_RESP_MSGLEN] = "\0";
     int buf_len = 0;
+    int len_len = 0;
 
     memset(buf, 0, MAX_REQ_RESP_MSGLEN);
     unsigned char *ptr = buf;
@@ -76,10 +77,10 @@ void exoredis_resp_integer (int val)
     /* OK  to use string operations since these are always simple strings */
     *ptr++ = prefix_string[INTEGER_DATA_TYPE];
     buf_len++;
-    sprintf((char *)ptr, "%d", val);
+    len_len = sprintf((char *)ptr, "%d", val);
 
-    ptr += sizeof(val);
-    buf_len += sizeof(val);
+    ptr += len_len;
+    buf_len += len_len;
 
     memcpy(ptr, trail_string, TRAIL_STRING_LEN);
     ptr += TRAIL_STRING_LEN;
@@ -95,24 +96,29 @@ void exoredis_resp_bulk_string (unsigned char *msg,
                                 int *buf_len)
 {
     unsigned char *ptr = *buf;
+    int len_len = 0;
 
     /* OK to use string operations since these are always simple strings */
     *ptr++ = prefix_string[BULK_STRING_DATA_TYPE];
     (*buf_len)++;
-    sprintf((char *)ptr, "%d", len);
-    ptr += sizeof(len);
-    (*buf_len) += sizeof(len);
+    len_len = sprintf((char *)ptr, "%d", len);
+    ptr += len_len;
+    (*buf_len) += len_len;
     memcpy(ptr, trail_string, TRAIL_STRING_LEN);
     ptr += TRAIL_STRING_LEN;
     (*buf_len) += TRAIL_STRING_LEN;
-    memcpy(ptr, msg, len);
-    ptr += len;
-    (*buf_len) += len;
-    memcpy(ptr, trail_string, TRAIL_STRING_LEN);
-    ptr += TRAIL_STRING_LEN;
-    (*buf_len) += TRAIL_STRING_LEN;
-    if (to_send)
+    if (len) {
+        memcpy(ptr, msg, len);
+        ptr += len;
+        (*buf_len) += len;
+        memcpy(ptr, trail_string, TRAIL_STRING_LEN);
+        ptr += TRAIL_STRING_LEN;
+        (*buf_len) += TRAIL_STRING_LEN;
+    }
+    if (to_send) {
         send(exoredis_io.fd, *buf, *buf_len, MSG_DONTWAIT);
+    }
+    /* Modify incoming pointer to end of buffer */
     *buf = ptr;
 }
 
@@ -124,14 +130,15 @@ void exoredis_resp_array (unsigned char *msg,
     unsigned char buf[MAX_REQ_RESP_MSGLEN] = "\0";
     unsigned char *ptr = buf;
     int buf_len = 0;
+    int len_len = 0;
 
     memset(buf, 0, MAX_REQ_RESP_MSGLEN);
 
     *ptr++ = prefix_string[ARRAY_DATA_TYPE];
     buf_len++;
-    sprintf((char *)ptr, "%d", size);
-    ptr += sizeof(size);
-    buf_len += sizeof(size);
+    len_len = sprintf((char *)ptr, "%d", size);
+    ptr += len_len;
+    buf_len += len_len;
     memcpy(ptr, trail_string, TRAIL_STRING_LEN);
     ptr += TRAIL_STRING_LEN;
     buf_len += TRAIL_STRING_LEN;
@@ -249,12 +256,75 @@ exoredis_parse_bit_arg (unsigned char **buf,
 
 }
 
-void exoredis_handle_set (unsigned char *key,
+exoredis_return_codes
+exoredis_parse_optional_arg (unsigned char **buf,
+                             int *args_len,
+                             unsigned char *flags,
+                             int *exp)
+{
+    *flags = 0;
+    exp[0] = 0;
+    exp[1] = 0;
+    while(*args_len > 0 ) {
+        while ((**buf == ' ') && (*args_len > 0)) {
+            (*buf)++; (*args_len)--;
+        }
+        
+        if (!strncpy((char *)(*buf), "EX", 2)) {
+            /* Set seconds to expiry */
+            (*buf) += 2;
+            (*args_len) -= 2;
+            *flags |= OPTION_EX;
+            if(exoredis_parse_int_arg(buf, args_len, &exp[0]) != 
+               EXOREDIS_OK) {
+                return EXOREDIS_ERR;
+            }
+            if (exp[0] <= 0) {
+                return EXOREDIS_BO_ARGS_INVALID;
+            }
+        } else if (!strncpy((char *)(*buf), "PX", 2)) {
+            (*buf) += 2;
+            (*args_len) -= 2;
+            *flags |= OPTION_PX;
+            /* Set milliseconds to expiry */
+            if(exoredis_parse_int_arg(buf, args_len, &exp[1]) != 
+               EXOREDIS_OK) {
+                return EXOREDIS_ERR;
+            }
+            if (exp[1] <= 0) {
+                return EXOREDIS_BO_ARGS_INVALID;
+            }
+        } else if (!strncpy((char *)(*buf), "NX", 2)) {
+            (*buf) += 2;
+            (*args_len) -= 2;
+            *flags |= OPTION_NX;
+            /* Only set if it does not exist */
+        } else if (!strncpy((char *)(*buf), "XX", 2)) {
+            (*buf) += 2;
+            (*args_len) -= 2;
+            /* Only set if it exists */
+            *flags |= OPTION_XX;
+        } else { 
+            return EXOREDIS_ERR;
+        }
+    }
+    return EXOREDIS_OK;
+
+}
+
+void
+exoredis_handle_set (unsigned char *key,
                           int args_len)
 {
-    unsigned char *ptr = NULL;
+    unsigned char *ptr = NULL, *options = NULL, flags = 0;
     int key_len = 0;
     int value_len = 0;
+    int exp_val[2] = {0};
+    exoredis_value_type type;
+    exoredis_return_codes ret;
+    unsigned char buf[MAX_REQ_RESP_MSGLEN] = "\0";
+    int buf_len = 0;
+
 
     /* Format : SET key string */
     if (exoredis_parse_key_arg(&key, &args_len, &key_len) == 
@@ -272,10 +342,34 @@ void exoredis_handle_set (unsigned char *key,
         return;
     }
 
-    printf("SET Command: SET %s %d %s %d \n", key, key_len, ptr, value_len);
+    options = ptr + value_len;
+    if ((ret = exoredis_parse_optional_arg(&options, &args_len, &flags, 
+                                    exp_val)) == EXOREDIS_ERR) {
+        exoredis_resp_error("syntax error", ERROR_STRING_ERR);
+        return;
+    } else if (ret == EXOREDIS_BO_ARGS_INVALID) {
+        exoredis_resp_error("invalid expire time in set", ERROR_STRING_ERR);
+        return;
+    }
+    type = ENCODING_VALUE_TYPE_STRING;
+    if (flags != 0) {
+       if ((flags & OPTION_EX) && (flags & OPTION_PX)) {
+           type = ENCODING_VALUE_TYPE_STRING_SEC_EX_PX;
+       } else if (flags & OPTION_EX) {
+           type = ENCODING_VALUE_TYPE_STRING_SEC_EX;
+       } else if (flags & OPTION_PX) {
+           type = ENCODING_VALUE_TYPE_STRING_SEC_PX;
+       }
+    }
+    printf("SET Command: SET %s %d %s %d %s\n", key, key_len, ptr, value_len,
+           options);
     /* Write the value into hash */
-    exoredis_lookup_create_update_he(key, key_len, ptr, value_len, 
-                                     ENCODING_VALUE_TYPE_STRING);
+    if (exoredis_lookup_create_update_he(key, key_len, ptr, value_len, flags, 
+                                         exp_val, type) == NULL) {
+        ptr = buf;
+        exoredis_resp_bulk_string(NULL, -1, 1, &ptr, &buf_len);
+        return;
+    }
     exoredis_resp_ok();
     return;
 }
@@ -320,14 +414,26 @@ void exoredis_handle_get (unsigned char *key,
 
     printf("GET Command: GET %s %d\n", key, key_len);
     
-    /* Write the value into hash */
+    /* Read the value from hash */
     exoredis_read_he(key, key_len, &value, &value_len, &type);
+
+    if (exoredis_string_type_mismatch(type)) {
+        /* Deallocate memory */
+        if (value_len) {
+            free(value);
+        }
+        exoredis_resp_error("Operation against a key holding"
+                            " the wrong kind of value", ERROR_STRING_WRONGTYPE);
+        return;
+    }
     
     /* Send Bulk String */
     exoredis_resp_bulk_string(value, value_len, 1, &ptr, &buf_len);
 
     /* Deallocate memory */
-    free(value);
+    if (value_len) {
+        free(value);
+    }
 
     return;
 }
@@ -439,8 +545,8 @@ void exoredis_handle_getbit (unsigned char *key,
     /* Get the bit at bitpos */
     ret = exoredis_get_bitoffset(key, key_len, bo, &orig_val);
     if (ret == EXOREDIS_WRONGTYPE) {
-        exoredis_resp_error("Operation against a key holding \
-                             the wrong kind of value", ERROR_STRING_WRONGTYPE);
+        exoredis_resp_error("Operation against a key holding"
+                            " the wrong kind of value", ERROR_STRING_WRONGTYPE);
     }
     exoredis_resp_integer(orig_val);
     return;
