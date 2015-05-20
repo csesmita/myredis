@@ -1124,6 +1124,9 @@ exoredis_make_bulk_string_from_sorted_set(ss_entry *start,
         temp_val_list = temp_val_list->ss_next;
         index++;
     }
+
+    /* Reached the right start index */
+
     index = 0;
     while (index < delta) {
         while(temp_val_list) {
@@ -1155,9 +1158,10 @@ exoredis_make_bulk_string_from_sorted_set(ss_entry *start,
             if (index == delta) break;
         }
         temp = temp->next;
+        if (!temp) break;
         temp_val_list = temp->start_value;
     }
-    *size = delta;
+    *size = index;
 }
 
 exoredis_return_codes
@@ -1194,7 +1198,7 @@ exoredis_find_range (unsigned char *key,
         start = start->next;
     }
 
-    exoredis_make_bulk_string_from_sorted_set(start, index, max - min + 1, 
+    exoredis_make_bulk_string_from_sorted_set(start, index, max - min + 1,
                                               withscore, buf, buf_len, size,
                                               save_format);
 

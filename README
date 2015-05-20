@@ -24,3 +24,6 @@ Limitations:
    handling.
 8. Spaces are considered valid characters in value, so trailing spaces in value
    are not pruned.
+9. ZADD does not strip or match quotes (""). They are considered a part of the
+   string, unlike the original protocol that matches and strips the quotes. 
+   Hence, the length in such cases will be more than that reported by REDIS.
