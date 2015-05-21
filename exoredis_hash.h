@@ -1,6 +1,6 @@
 #ifndef EXOREDIS_HASH_H_
 #define EXOREDIS_HASH_H_
-#include "exordb.h"
+#include "exoredis.h"
 
 #define TRUE 1
 #define FALSE 0

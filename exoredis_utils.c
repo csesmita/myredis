@@ -1,7 +1,6 @@
 #include "exoredis.h"
 #include "exoredis_server.h"
 #include "exoredis_hash.h"
-#include "exordb.h"
 #include <ctype.h>
 
 /* Define prefix strings for the data types */

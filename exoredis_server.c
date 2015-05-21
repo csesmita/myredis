@@ -5,7 +5,6 @@
 
 #include "exoredis.h"
 #include "exoredis_server.h"
-#include "exordb.h"
 #include "exoredis_hash.h"
 #include <signal.h>
 
