@@ -8,22 +8,22 @@ This was what was thought when making this project:
 4. Repeat step 2.
 
 Limitations:
-1. Does not support FD set. Only one client may connect to this server for now.
+1. Only one client may connect to this server for now.
 2. .exordb file format is slightly different. Only length-key-value make up the
    entries for now.
 3. No buffering of requests. For now one request is followed by response, in
    that order.
-4. An upper limit of 1000 entries are set for this DB. This is defined in
-   exoredis_rdb.h
-5. READ: Lazy copy of DB from file to hash table. When a read occurs, the hash
-   table is first looked up. A hit returns the value. A miss looks up the  DB
-   file, retrieves the value, enters it into the hash and returns.
-6. WRITE: Write always writes the value of the key into the hash table
-7. SAVE (Or Program Exit): For each entry in hash table, create or update value
-   into DB file. Since DELETE is not implemnented, no other case needs
-   handling.
+4. LOAD: DB file contents are loaded into hash table during startup.
+5. READ: When a read occurs, the hash table is looked up. A hit returns the
+   value. A miss writes a new entry into hash table.
+6. WRITE: Write always writes the value of the key into the hash table, or
+   updates it. This also depends on optional flags (NX or XX).
+7. SAVE (Or Program Exit): Write contents of the hash table to the file. 
+   Replace exisiting file with the new DB file written.
 8. Spaces are considered valid characters in value, so trailing spaces in value
    are not pruned.
 9. ZADD does not strip or match quotes (""). They are considered a part of the
    string, unlike the original protocol that matches and strips the quotes. 
    Hence, the length in such cases will be more than that reported by REDIS.
+   If desired, the strings can be specified without the quotes.
+10. When no DB file exists, do a touch on the file and provide input

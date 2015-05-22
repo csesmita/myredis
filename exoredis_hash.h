@@ -44,8 +44,8 @@ typedef struct _sorted_set_list ss_val_list;
 struct _sorted_list_entry {
     int score;
     unsigned int card;
-    ss_val_list *start_value;
     struct _sorted_list_entry *next;
+    ss_val_list *start_value;
 };
 
 typedef struct _sorted_list_entry ss_entry;

@@ -102,41 +102,30 @@ void exoredis_process_request(unsigned char *buf,
 
     switch(cmd) {
         case EXOREDIS_CMD_GET:
-            printf("Arguments to command %s\n", buf);
             return exoredis_handle_get(buf, args_len);
 
         case EXOREDIS_CMD_SET:
-            printf("Arguments to command %s\n", buf);
             return exoredis_handle_set(buf, args_len);
 
         case EXOREDIS_CMD_SETBIT:
-            printf("Arguments to command %s\n", buf);
             return exoredis_handle_setbit(buf, args_len);
 
         case EXOREDIS_CMD_GETBIT:
-            printf("Arguments to command %s\n", buf);
             return exoredis_handle_getbit(buf, args_len);
 
         case EXOREDIS_CMD_ZADD:
-            printf("Arguments to command %s\n", buf);
             return exoredis_handle_zadd(buf, args_len);
 
         case EXOREDIS_CMD_ZCOUNT:
-            printf("Arguments to command %s\n", buf);
             return exoredis_handle_zcount(buf, args_len);
 
         case EXOREDIS_CMD_ZCARD:
-            printf("Arguments to command %s\n", buf);
             return exoredis_handle_zcard(buf, args_len);
 
         case EXOREDIS_CMD_ZRANGE:
-            printf("Arguments to command %s\n", buf);
             return exoredis_handle_zrange(buf, args_len);
 
         case EXOREDIS_CMD_SAVE:
-            if (command_len < read_len) {
-                printf("SAVE doesn't take arguments\n");
-            }
             return exoredis_handle_save();
 
         default:
@@ -221,8 +210,6 @@ int main(int argc, char *argv[])
         return(-1);
     }
 
-    printf("Server socket FD %d\n", listen_sock);
-
     memset(&server_addr, 0, sizeof(server_addr));
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(EXOREDIS_SERVER_TCP_PORT);
@@ -233,9 +220,6 @@ int main(int argc, char *argv[])
     bind(listen_sock, (struct sockaddr *)&server_addr, sizeof(struct sockaddr));
 
     listen(listen_sock, EXOREDIS_MAX_SERVER_CONN);
-
-    printf("Server waiting for client requests on port %d\n",
-           EXOREDIS_SERVER_TCP_PORT);
 
    /* Now wait infinitely for client to send requests */
     while(1) {

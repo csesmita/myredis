@@ -142,12 +142,10 @@ void exoredis_resp_array (unsigned char *msg,
     ptr += TRAIL_STRING_LEN;
     buf_len += TRAIL_STRING_LEN;
 
+    /* Msg already has the tail string */
     memcpy(ptr, msg, len);
     ptr += len;
     buf_len += len;
-    memcpy(ptr, trail_string, TRAIL_STRING_LEN);
-    ptr += TRAIL_STRING_LEN;
-    buf_len += TRAIL_STRING_LEN;
 
     if (to_send)
         send(exoredis_io.fd, buf, buf_len, MSG_DONTWAIT);
@@ -360,8 +358,6 @@ exoredis_handle_set (unsigned char *key,
            type = ENCODING_VALUE_TYPE_STRING_SEC_PX;
        }
     }
-    printf("SET Command: SET %s %d %s %d %s\n", key, key_len, ptr, value_len,
-           options);
     /* Write the value into hash */
     if (exoredis_lookup_create_update_he(key, key_len, ptr, value_len, flags, 
                                          exp_val, type) == NULL) {
@@ -411,8 +407,6 @@ void exoredis_handle_get (unsigned char *key,
         return;
     }
 
-    printf("GET Command: GET %s %d\n", key, key_len);
-    
     /* Read the value from hash */
     exoredis_read_he(key, key_len, &value, &value_len, &type);
 
@@ -439,8 +433,6 @@ void exoredis_handle_get (unsigned char *key,
 
 void exoredis_handle_save (void)
 {
-    printf("SAVE Command: %s\n", "+OK");
-    
     /* Dump the contents of the hash table into the DB File */
     exoredis_feed_ht_to_io();
 
@@ -625,7 +617,7 @@ void exoredis_handle_zcount (unsigned char *key,
     if ((ret = exoredis_parse_int_arg(&minpos, &args_len, &min)) !=
         EXOREDIS_OK) {
         if (ret == EXOREDIS_ARGS_MISSING) {
-            exoredis_resp_error("wrong number of arguments for 'ZADD' command",
+            exoredis_resp_error("wrong number of arguments for 'ZCOUNT' command",
                                 ERROR_STRING_ERR);
         } else if (ret ==  EXOREDIS_BO_ARGS_INVALID) {
             exoredis_resp_error("value is not a valid integer",
@@ -638,7 +630,7 @@ void exoredis_handle_zcount (unsigned char *key,
     if ((ret = exoredis_parse_int_arg(&maxpos, &args_len, &max)) !=
         EXOREDIS_OK) {
         if (ret == EXOREDIS_ARGS_MISSING) {
-            exoredis_resp_error("wrong number of arguments for 'ZADD' command",
+            exoredis_resp_error("wrong number of arguments for 'ZCOUNT' command",
                                 ERROR_STRING_ERR);
         } else if (ret ==  EXOREDIS_BO_ARGS_INVALID) {
             exoredis_resp_error("value is not a valid integer",
@@ -681,7 +673,7 @@ void exoredis_handle_zrange (unsigned char *key,
     if ((ret = exoredis_parse_int_arg(&minpos, &args_len, &min)) !=
         EXOREDIS_OK) {
         if (ret == EXOREDIS_ARGS_MISSING) {
-            exoredis_resp_error("wrong number of arguments for 'ZADD' command",
+            exoredis_resp_error("wrong number of arguments for 'ZRANGE' command",
                                 ERROR_STRING_ERR);
         } else if (ret ==  EXOREDIS_BO_ARGS_INVALID) {
             exoredis_resp_error("value is not a valid integer",
@@ -694,7 +686,7 @@ void exoredis_handle_zrange (unsigned char *key,
     if ((ret = exoredis_parse_int_arg(&maxpos, &args_len, &max)) !=
         EXOREDIS_OK) {
         if (ret == EXOREDIS_ARGS_MISSING) {
-            exoredis_resp_error("wrong number of arguments for 'ZADD' command",
+            exoredis_resp_error("wrong number of arguments for 'ZRANGE' command",
                                 ERROR_STRING_ERR);
         } else if (ret ==  EXOREDIS_BO_ARGS_INVALID) {
             exoredis_resp_error("value is not a valid integer",
@@ -748,4 +740,3 @@ void exoredis_handle_zcard (unsigned char *key,
     exoredis_card_sortedset(key, key_len, &card);
     exoredis_resp_integer(card);
 }
-
