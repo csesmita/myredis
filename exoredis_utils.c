@@ -463,11 +463,11 @@ void exoredis_handle_setbit (unsigned char *key,
     if ((ret = exoredis_parse_int_arg(&bitpos, &args_len, &bo)) !=
         EXOREDIS_OK) {
         if (ret == EXOREDIS_ARGS_MISSING) {
-            exoredis_resp_error("wrong number of arguments for 'SETBIT' command",
-                                ERROR_STRING_ERR);
+           exoredis_resp_error("wrong number of arguments for 'SETBIT' command",
+                               ERROR_STRING_ERR);
         } else {
-            exoredis_resp_error("bit offset is not a integer or out of range",
-                                ERROR_STRING_ERR);
+           exoredis_resp_error("bit offset is not a integer or out of range",
+                               ERROR_STRING_ERR);
         }
         return;
     }
@@ -476,11 +476,13 @@ void exoredis_handle_setbit (unsigned char *key,
     if ((ret = exoredis_parse_bit_arg(&bitchar, &args_len, &bitset)) !=
         EXOREDIS_OK) {
             if (ret == EXOREDIS_BO_ARGS_INVALID) {
-                exoredis_resp_error("bit offset is not a integer or out of range",
-                                    ERROR_STRING_ERR);
+                exoredis_resp_error(
+                    "bit offset is not a integer or out of range",
+                    ERROR_STRING_ERR);
             } else {
-                exoredis_resp_error("wrong number of arguments for 'SETBIT' command",
-                                    ERROR_STRING_ERR);
+                exoredis_resp_error(
+                    "wrong number of arguments for 'SETBIT' command",
+                    ERROR_STRING_ERR);
             }
             return;
     }
@@ -515,8 +517,9 @@ void exoredis_handle_getbit (unsigned char *key,
     if ((ret = exoredis_parse_int_arg(&bitpos, &args_len, &bo)) !=
         EXOREDIS_OK) {
         if (ret == EXOREDIS_ARGS_MISSING) {
-            exoredis_resp_error("wrong number of arguments for 'GETBIT' command",
-                                ERROR_STRING_ERR);
+            exoredis_resp_error(
+                "wrong number of arguments for 'GETBIT' command",
+                ERROR_STRING_ERR);
         } else {
             exoredis_resp_error("bit offset is not a integer or out of range",
                                 ERROR_STRING_ERR);
@@ -567,8 +570,9 @@ void exoredis_handle_zadd (unsigned char *key,
         if ((ret = exoredis_parse_int_arg(&scorepos, &args_len, &score[i])) !=
             EXOREDIS_OK) {
             if (i == 0 && (ret == EXOREDIS_ARGS_MISSING)) {
-                exoredis_resp_error("wrong number of arguments for 'ZADD' command",
-                                    ERROR_STRING_ERR);
+                exoredis_resp_error(
+                    "wrong number of arguments for 'ZADD' command",
+                    ERROR_STRING_ERR);
                 return;
             } else if (ret ==  EXOREDIS_BO_ARGS_INVALID) {
                 exoredis_resp_error("value is not a valid integer",
@@ -591,6 +595,12 @@ void exoredis_handle_zadd (unsigned char *key,
 
     ret = exoredis_add_sortedset(key, key_len, score, value, value_len, i,
                                  &added);
+    if (ret == EXOREDIS_WRONGTYPE) {
+        exoredis_resp_error("Operation against a key holding"
+                            " the wrong kind of value", 
+                            ERROR_STRING_WRONGTYPE);
+        return;
+    }
     exoredis_resp_integer(added);
     return;
 
@@ -617,8 +627,9 @@ void exoredis_handle_zcount (unsigned char *key,
     if ((ret = exoredis_parse_int_arg(&minpos, &args_len, &min)) !=
         EXOREDIS_OK) {
         if (ret == EXOREDIS_ARGS_MISSING) {
-            exoredis_resp_error("wrong number of arguments for 'ZCOUNT' command",
-                                ERROR_STRING_ERR);
+            exoredis_resp_error(
+                "wrong number of arguments for 'ZCOUNT' command",
+                ERROR_STRING_ERR);
         } else if (ret ==  EXOREDIS_BO_ARGS_INVALID) {
             exoredis_resp_error("value is not a valid integer",
                                 ERROR_STRING_ERR);
@@ -630,8 +641,9 @@ void exoredis_handle_zcount (unsigned char *key,
     if ((ret = exoredis_parse_int_arg(&maxpos, &args_len, &max)) !=
         EXOREDIS_OK) {
         if (ret == EXOREDIS_ARGS_MISSING) {
-            exoredis_resp_error("wrong number of arguments for 'ZCOUNT' command",
-                                ERROR_STRING_ERR);
+            exoredis_resp_error(
+                "wrong number of arguments for 'ZCOUNT' command",
+                ERROR_STRING_ERR);
         } else if (ret ==  EXOREDIS_BO_ARGS_INVALID) {
             exoredis_resp_error("value is not a valid integer",
                                 ERROR_STRING_ERR);
@@ -640,6 +652,12 @@ void exoredis_handle_zcount (unsigned char *key,
     }
 
     ret = exoredis_count_sortedset(key, key_len, min, max, &count);
+    if (ret == EXOREDIS_WRONGTYPE) {
+        exoredis_resp_error("Operation against a key holding"
+                            " the wrong kind of value", 
+                            ERROR_STRING_WRONGTYPE);
+        return;
+    }
     exoredis_resp_integer(count);
     return;
 }
@@ -673,8 +691,9 @@ void exoredis_handle_zrange (unsigned char *key,
     if ((ret = exoredis_parse_int_arg(&minpos, &args_len, &min)) !=
         EXOREDIS_OK) {
         if (ret == EXOREDIS_ARGS_MISSING) {
-            exoredis_resp_error("wrong number of arguments for 'ZRANGE' command",
-                                ERROR_STRING_ERR);
+            exoredis_resp_error(
+                "wrong number of arguments for 'ZRANGE' command",
+                ERROR_STRING_ERR);
         } else if (ret ==  EXOREDIS_BO_ARGS_INVALID) {
             exoredis_resp_error("value is not a valid integer",
                                 ERROR_STRING_ERR);
@@ -686,8 +705,9 @@ void exoredis_handle_zrange (unsigned char *key,
     if ((ret = exoredis_parse_int_arg(&maxpos, &args_len, &max)) !=
         EXOREDIS_OK) {
         if (ret == EXOREDIS_ARGS_MISSING) {
-            exoredis_resp_error("wrong number of arguments for 'ZRANGE' command",
-                                ERROR_STRING_ERR);
+            exoredis_resp_error(
+                "wrong number of arguments for 'ZRANGE' command",
+                ERROR_STRING_ERR);
         } else if (ret ==  EXOREDIS_BO_ARGS_INVALID) {
             exoredis_resp_error("value is not a valid integer",
                                 ERROR_STRING_ERR);
@@ -709,6 +729,12 @@ void exoredis_handle_zrange (unsigned char *key,
 
     ret = exoredis_range_sortedset(key, key_len, min, max, withscore,
                                    &ptr, &buf_len, &size, FALSE);
+    if (ret == EXOREDIS_WRONGTYPE) {
+        exoredis_resp_error("Operation against a key holding"
+                            " the wrong kind of value", 
+                            ERROR_STRING_WRONGTYPE);
+        return;
+    }
     exoredis_resp_array(buf,buf_len, size, 1);
     return;
 
@@ -721,6 +747,7 @@ void exoredis_handle_zcard (unsigned char *key,
     int key_len = 0;
     unsigned char *value;
     int value_len;
+    exoredis_return_codes ret;
 
     if (exoredis_parse_key_arg(&key, &args_len, &key_len) == 
          EXOREDIS_ARGS_MISSING) {
@@ -737,6 +764,12 @@ void exoredis_handle_zcard (unsigned char *key,
         return;
     }
 
-    exoredis_card_sortedset(key, key_len, &card);
+    ret = exoredis_card_sortedset(key, key_len, &card);
+    if (ret == EXOREDIS_WRONGTYPE) {
+        exoredis_resp_error("Operation against a key holding"
+                            " the wrong kind of value", 
+                            ERROR_STRING_WRONGTYPE);
+        return;
+    }
     exoredis_resp_integer(card);
 }

@@ -224,7 +224,8 @@ int main(int argc, char *argv[])
    /* Now wait infinitely for client to send requests */
     while(1) {
         sin_size = sizeof(client_addr);
-        new_fd = accept(listen_sock, (struct sockaddr *)&client_addr, &sin_size);
+        new_fd = accept(listen_sock, (struct sockaddr *)&client_addr, 
+                        &sin_size);
         if (new_fd == -1) {
             /* Error accepting new request */
             perror("Error accepting new request");
