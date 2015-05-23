@@ -420,11 +420,12 @@ exoredis_feed_io_to_ht (void)
     int expires_value[2];
     int card, index= 0;
     unsigned int added = 0;
-    unsigned char value[MAX_REQ_RESP_MSGLEN];
-    unsigned char *ptr = value;
-    int value_len_ss[MAX_REQ_RESP_MSGLEN];
+    unsigned char *value[MAX_REQ_RESP_INT_NUM];
+    unsigned char buf[MAX_REQ_RESP_MSGLEN];
+    unsigned char *ptr = buf;
+    int value_len_ss[MAX_REQ_RESP_INT_NUM];
     int value_len;
-    int score[MAX_REQ_RESP_MSGLEN];
+    int score[MAX_REQ_RESP_INT_NUM];
 
     /* Open the file in read-only binary mode */
     if((fp = fopen(exoredis_io.filePath, "rb")) == NULL) {
@@ -490,14 +491,14 @@ exoredis_feed_io_to_ht (void)
         }
 
         /* Read values */
-        ptr = value;
+        ptr = buf;
         switch(type) {
             case ENCODING_VALUE_TYPE_STRING:
             case ENCODING_VALUE_TYPE_STRING_SEC_EX:
             case ENCODING_VALUE_TYPE_STRING_SEC_PX:
                 fread(&value_len, sizeof(value_len), 1, fp);
-                fread(&value, 1, value_len, fp);
-                exoredis_lookup_create_update_he(key, key_len, value,
+                fread(ptr, 1, value_len, fp);
+                exoredis_lookup_create_update_he(key, key_len, ptr,
                                                  value_len, 0, expires_value,
                                                  type);
                 break;
@@ -508,16 +509,15 @@ exoredis_feed_io_to_ht (void)
                  *
                  * (4)  |  (4)    | (Val_len) |  (4)  |  (4)    | ...
                  */
-
                 for (index = 0; index < card; index++) {
                     /* Form value_len, value arrays */
                     fread(&value_len_ss[index], sizeof(int), 1, fp);
                     fread(ptr, value_len_ss[index], 1, fp);
+                    value[index] = ptr;
                     ptr += value_len_ss[index];
                     fread(&score[index], sizeof(int), 1, fp);
                 }
-                ptr = value;
-                exoredis_add_sortedset(key, key_len, score, &ptr, value_len_ss,
+                exoredis_add_sortedset(key, key_len, score, value, value_len_ss,
                                        card, &added);
                 break;
             default:
@@ -742,11 +742,19 @@ exoredis_purge_ss_entries (exoredis_hash_entry *he_node,
             return NULL;
         }
         ss_value = (unsigned char *)firstnode;
-        ss_value_len = sizeof(ss_entry) + sizeof(ss_val_list) + 
-                       firstnode->start_value->ss_value_len;
+        ss_value_len = sizeof(ss_entry);
         he_ret = exoredis_lookup_create_update_he(key, key_len, ss_value,
                                                   ss_value_len, 0, NULL,
                                                   ENCODING_VALUE_TYPE_SORTED_SET);
+        temp = (ss_entry *)he_ret->value;
+        ss_value_len = sizeof(ss_val_list) + 
+                       firstnode->start_value->ss_value_len;
+        
+        temp->start_value = (ss_val_list *)malloc(ss_value_len);
+        memcpy(temp->start_value->ss_value, firstnode->start_value->ss_value,
+               firstnode->start_value->ss_value_len);
+        temp->start_value->ss_value_len = firstnode->start_value->ss_value_len;
+        temp->start_value->ss_next = firstnode->start_value->ss_next;
 
         if (firstnode->start_value) {
             free(firstnode->start_value);
@@ -758,7 +766,7 @@ exoredis_purge_ss_entries (exoredis_hash_entry *he_node,
     he_ret = he_node;
     temp = (ss_entry *)he_node->value;
 
-    /* start_value in the he_node can't be freed.
+    /* value in the he_node can't be freed.
      * Find the first non-zero ss_entry
      */
     if (temp && temp->card == 0) {
@@ -773,29 +781,42 @@ exoredis_purge_ss_entries (exoredis_hash_entry *he_node,
         if (!node) {
             if (firstnode) {
                 ss_value = (unsigned char *)firstnode;
-                ss_value_len = sizeof(ss_entry) + sizeof(ss_val_list) + 
-                               firstnode->start_value->ss_value_len;
+                ss_value_len = sizeof(ss_entry);
                 he_ret =  exoredis_lookup_create_update_he(key, key_len, ss_value,
                                                            ss_value_len, 0, NULL,
                                                            ENCODING_VALUE_TYPE_SORTED_SET);
+                temp = (ss_entry *)he_ret->value;
+                ss_value_len = sizeof(ss_val_list) + 
+                               firstnode->start_value->ss_value_len;
+                
+                temp->start_value = (ss_val_list *)malloc(ss_value_len);
+                memcpy(temp->start_value->ss_value, firstnode->start_value->ss_value,
+                       firstnode->start_value->ss_value_len);
+                temp->start_value->ss_value_len = firstnode->start_value->ss_value_len;
+                temp->start_value->ss_next = firstnode->start_value->ss_next;
+
                 if (firstnode->start_value) {
                     free(firstnode->start_value);
                 }
 
                 free(firstnode);
                 return he_ret;
-
-            } else {
-                return exoredis_lookup_create_update_he(key, key_len, NULL, 0, 0, NULL,
-                                                        ENCODING_VALUE_TYPE_SORTED_SET);
             }
         } else {
             /* Update the node value in hash table */
             he_ret = exoredis_lookup_create_update_he(key, key_len, 
                                       (unsigned char *)node,
-                                      sizeof(ss_entry) + sizeof(ss_val_list) +
-                                      node->start_value->ss_value_len, 0,
+                                      sizeof(ss_entry), 0,
                                       NULL, ENCODING_VALUE_TYPE_SORTED_SET);
+            temp = (ss_entry *)he_ret->value;
+            ss_value_len = sizeof(ss_val_list) + 
+                           node->start_value->ss_value_len;
+            
+            temp->start_value = (ss_val_list *)malloc(ss_value_len);
+            memcpy(temp->start_value->ss_value, node->start_value->ss_value,
+                   node->start_value->ss_value_len);
+            temp->start_value->ss_value_len = node->start_value->ss_value_len;
+            temp->start_value->ss_next = node->start_value->ss_next;
 
         }
     }
@@ -826,27 +847,39 @@ exoredis_write_first_ss_val (unsigned char *key,
                              ss_val_list *ss_val,
                              ss_val_list *ss_next)
 {
+    int ss_value_len = 0;
+    ss_entry local_sse;
     exoredis_hash_entry *he_node = NULL;
 
-    if (!(*firstnode) || !ss_val) {
+    if (!firstnode || !(*firstnode) || !ss_val) {
         return NULL;
     }
+
+    local_sse.card = (*firstnode)->card;
+    local_sse.score = (*firstnode)->score;
+    local_sse.next = (*firstnode)->next;
 
     /* Resize the node value in hash table */
     he_node = exoredis_lookup_create_update_he(key, key_len, 
                                                (unsigned char *)(*firstnode),
-                                               sizeof(ss_entry) + 
-                                               sizeof(ss_val_list) +
-                                               ss_val->ss_value_len, 0,
+                                               sizeof(ss_entry), 0, 
                                                NULL,
                                                ENCODING_VALUE_TYPE_SORTED_SET);
+
     *firstnode = (ss_entry *)he_node->value;
-    if ((*firstnode)->start_value) {
-        memcpy((*firstnode)->start_value->ss_value, ss_val->ss_value,
-               ss_val->ss_value_len);
-        (*firstnode)->start_value->ss_value_len = ss_val->ss_value_len;
-        (*firstnode)->start_value->ss_next = ss_next;
-    }
+
+    (*firstnode)->card = local_sse.card;
+    (*firstnode)->score = local_sse.score;
+    (*firstnode)->next = local_sse.next;
+
+    ss_value_len = sizeof(ss_val_list) + ss_val->ss_value_len;
+    
+    (*firstnode)->start_value = (ss_val_list *)malloc(ss_value_len);
+    memcpy((*firstnode)->start_value->ss_value, ss_val->ss_value,
+           ss_val->ss_value_len);
+    (*firstnode)->start_value->ss_value_len = ss_val->ss_value_len;
+    (*firstnode)->start_value->ss_next = ss_next;
+
     return he_node;
 }
 
@@ -858,35 +891,36 @@ exoredis_write_first_ss_entry (unsigned char *key,
 {
     exoredis_hash_entry *he_node = NULL;
     ss_entry *block = NULL;
+    ss_entry local_sse;
 
-    if (!(*new) || !(*old)) {
+    if (!new || !(*new) || !old || !(*old)) {
         return NULL;
     }
 
-    /* Create a new chunk for old */
+    /* Create a new chunk for old, since right now it sits inside he_node */
     block = (ss_entry *)malloc(sizeof(ss_entry));
     block->card = (*old)->card;
     block->next = (*old)->next;
     block->score = (*old)->score;
     block->start_value = (*old)->start_value;
+    (*old) = block;
 
-    block->start_value = (ss_val_list *)malloc(sizeof(ss_val_list) + 
-                                (*old)->start_value->ss_value_len);
-    memcpy(block->start_value->ss_value, (*old)->start_value->ss_value, 
-           (*old)->start_value->ss_value_len);
-    block->start_value->ss_value_len = (*old)->start_value->ss_value_len;
-    block->start_value->ss_next = (*old)->start_value->ss_next;
+    local_sse.card  = (*new)->card;
+    local_sse.score = (*new)->score;
+    /* The newly allocated block is now the next */
+    local_sse.next  = block;
+    local_sse.start_value = (*new)->start_value;
 
     /* Resize the node value in hash table */
     he_node = exoredis_lookup_create_update_he(key, key_len, 
                                                (unsigned char *)(*new),
-                                               sizeof(ss_entry) + 
-                                               sizeof(ss_val_list) +
-                                               (*new)->start_value->ss_value_len,
-                                               0, NULL,
+                                               sizeof(ss_entry), 0, NULL, 
                                                ENCODING_VALUE_TYPE_SORTED_SET);
-    *new = (ss_entry *)he_node->value;
-    *old = block;
+    (*new) = (ss_entry *)he_node->value;
+    (*new)->card  = local_sse.card;
+    (*new)->score = local_sse.score;
+    (*new)->next  = local_sse.next;
+    (*new)->start_value = local_sse.start_value;
 
     return he_node;
 }
@@ -1105,6 +1139,7 @@ exoredis_form_ss_value_and_insert (unsigned char *key,
                             he_node = exoredis_write_first_ss_val(key, 
                                          key_len, &temp_ss_entry,
                                          new_val_list, temp_val_list);
+                                         
                             free(new_val_list);
                         } else {
                             /* First in list */
@@ -1169,9 +1204,6 @@ exoredis_form_ss_value_and_insert (unsigned char *key,
                             temp2_ss_entry = new_ss_entry;
                             he_node = exoredis_write_first_ss_entry(key, 
                                          key_len, &new_ss_entry, &temp_ss_entry);
-                            if (temp2_ss_entry->start_value) {
-                                free(temp2_ss_entry->start_value);
-                            }
                             free(temp2_ss_entry);
                         }
                     }
@@ -1202,17 +1234,7 @@ exoredis_add_sortedset (unsigned char *key,
                         int num,
                         unsigned int *added)
 {
-    int i = 0;
-    char temp_str[100];
-    int len = 0;
     exoredis_return_codes ret;
-
-    while (i < num) {
-        memcpy(temp_str, value[i], value_len[i]);
-        len = value_len[i];
-        temp_str[len] = '\0';
-        i++;
-    }
 
     /* Form sorted set value */
     ret = exoredis_form_ss_value_and_insert(key, key_len, score, value, 
@@ -1233,7 +1255,7 @@ exoredis_make_bulk_string_from_sorted_set(ss_entry *start,
 {
     ss_entry *temp = start;
     ss_val_list *temp_val_list = NULL;
-    int index = 0, len=0;
+    int index = 0, len=0, units=0;
     *buf_len = 0;
     unsigned char scorebuf[12];
 
@@ -1246,6 +1268,7 @@ exoredis_make_bulk_string_from_sorted_set(ss_entry *start,
     /* Reached the right start index */
 
     index = 0;
+    units = 0;
     while (index < delta) {
         while(temp_val_list) {
             if (!save_format) {
@@ -1273,13 +1296,14 @@ exoredis_make_bulk_string_from_sorted_set(ss_entry *start,
             }
             temp_val_list = temp_val_list->ss_next;
             index++;
+            units = (withscore)? units + 2 : units + 1;
             if (index == delta) break;
         }
         temp = temp->next;
         if (!temp) break;
         temp_val_list = temp->start_value;
     }
-    *size = index;
+    *size = units;
 }
 
 exoredis_return_codes
