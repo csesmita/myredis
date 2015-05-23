@@ -1,13 +1,26 @@
+Author: Smita Vijayakumar
+2015/5/23
+
+Build Instructions:
+-------------------
+   exoredis_server binary is provided along with the source code. This is the
+   most recent binary. Alternately, the binary may be compile by running make
+   inside the source directory.
+
+Please read the Limitations section that captures the current limitations.
+
 Through the developer's mind
 -----------------------------
 
 This was what was thought when making this project:
 1. Implement simple TCP Server at port EXOREDIS_SERVER_TCP_PORT
-2. Test telnet echoes a server response for the telnet request (connection request and special request)
+2. Test telnet echoes a server response for the telnet request (connection 
+   request and special request)
 3. Implement REDIS protocol at server
 4. Repeat step 2.
 
 Limitations:
+-------------
 1. Only one client may connect to this server for now.
 2. .exordb file format is slightly different. Only length-key-value make up the
    entries for now.
@@ -27,3 +40,46 @@ Limitations:
    Hence, the length in such cases will be more than that reported by REDIS.
    If desired, the strings can be specified without the quotes.
 10. When no DB file exists, do a touch on the file and provide input
+
+Sample UT Logs:
+---------------
+On the server do:
+
+make clean; make; touch dbfile; ./exoredis_server dbfile
+
+Sample logs on client:
+root@smita-virtual-machine:/home/smita/exoredis# telnet localhost 15000
+Trying 127.0.0.1...
+Connected to localhost.
+Escape character is '^]'.
+GET str
+$0
+SET str newstring
++OK 
+GEt str
+$9
+newstring
+SAVE
++OK 
+ZADD set 3 "three"
+:1
+ZADD set 2 "two"
+:1
+ZADD set 4 "four"
+:1
+ZRANGE set 0 2 withscores
+*6
+$5
+"two"
+$1
+2
+$7
+"three"
+$1
+3
+$6
+"four"
+$1
+4
+SAVE
++OK
