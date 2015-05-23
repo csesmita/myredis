@@ -873,9 +873,10 @@ exoredis_purge_ss_entries (exoredis_hash_entry *he_node,
             prev->next = next;
             if (node->start_value) free(node->start_value);
             free(node);
+        } else {
+            prev = next;
+            next = next->next;
         }
-        prev = next;
-        next = next->next;
     }
     return he_ret;
 
@@ -1075,7 +1076,7 @@ exoredis_form_ss_value_and_insert (unsigned char *key,
 
                 /* Check for left over scores having this value */
                 if (!exist_val_list && temp_ss_entry) {
-                    temp2_ss_entry = temp_ss_entry->next;
+                    temp2_ss_entry = temp_ss_entry;
                     while(temp2_ss_entry) {
                         temp_val_list = temp2_ss_entry->start_value;
                         prev_val_list = NULL;
